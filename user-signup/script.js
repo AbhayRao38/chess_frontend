@@ -9,3 +9,9 @@ registerBtn.addEventListener('click', () => {
 loginBtn.addEventListener('click', () => {
     container.classList.remove("active");
 });
+// const firstbox = document.getElementById('firstbox');
+// const btn = document.querySelector('btn');
+// btn.addEventListener('click', () => {
+//     firstbox.classList.toggle('hidediv');
+//     firstbox.style.backgroundColor = 'blue';
+// });
