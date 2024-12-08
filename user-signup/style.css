@@ -19,9 +19,9 @@ body {
 }
 
 .container {
-    background-color: rgba(61, 38, 38, 0.7); /* Translucent white */
+    background-color: rgba(0, 0, 0, 0.7); /* Translucent white */
     border-radius: 30px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 5px 15px rgba(253, 253, 253, 0.35);
     position: relative;
     overflow: hidden;
     width: 768px;
@@ -41,15 +41,15 @@ body {
 }
 
 .container a {
-    color: #333;
+    color: #ffffff;
     font-size: 13px;
     text-decoration: none;
     margin: 15px 0 10px;
 }
 
 .container button {
-    background-color: #000; /* Black background */
-    color: #fff;
+    background-color: #000000; /* Black background */
+    color: #f8f8f8;
     font-size: 12px;
     padding: 10px 45px;
     border: 1px solid transparent;
@@ -63,11 +63,11 @@ body {
 
 .container button.hidden {
     background-color: transparent;
-    border-color: #fff;
+    border-color: #ffffff;
 }
 
 .container form {
-    background-color: rgba(37, 35, 35, 0.292);
+    background-color: rgba(61, 45, 45, 0.292);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -134,7 +134,7 @@ body {
 }
 
 .social-icons a {
-    border: 1px solid #ccc;
+    border: 1px solid #ffffff;
     border-radius: 20%;
     display: inline-flex;
     justify-content: center;
