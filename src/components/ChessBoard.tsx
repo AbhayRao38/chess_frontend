@@ -77,7 +77,7 @@ export const ChessBoard = ({ chess, board, socket, setBoard, playerColor }: {
                 })}
             </div>
             <div className="mt-4 text-lg font-semibold bg-slate-700 text-white px-4 py-2 rounded">
-                {isPlayerTurn ? "Your turn" : "Opponent's turn"} ({chess.turn() === "w" ? "White" : "Black"} to move)
+                {isPlayerTurn ? "Your turn" : "Opponent's turn"} 
             </div>
         </div>
     );
