@@ -3,6 +3,7 @@ import { Button } from "../components/Button"
 import { ChessBoard } from "../components/ChessBoard"
 import { useSocket } from "../hooks/useSocket";
 import { Chess } from 'chess.js'
+import { Timer } from "../components/Timer";
 
 export const INIT_GAME = "init_game";
 export const MOVE = "move";
@@ -14,6 +15,22 @@ export const Game = () => {
     const [board, setBoard] = useState(chess.board());
     const [started, setStarted] = useState(false);
     const [playerColor, setPlayerColor] = useState<"white" | "black">("white");
+    const [whiteTime, setWhiteTime] = useState(0);
+    const [blackTime, setBlackTime] = useState(0);
+
+    useEffect(() => {
+        if (!started) return;
+
+        const interval = setInterval(() => {
+            if (chess.turn() === 'w') {
+                setWhiteTime(prev => prev + 1);
+            } else {
+                setBlackTime(prev => prev + 1);
+            }
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [started, chess.turn()]);
 
     useEffect(() => {
         if (!socket) {
@@ -27,6 +44,8 @@ export const Game = () => {
                     setBoard(chess.board());
                     setStarted(true);
                     setPlayerColor(message.payload.color);
+                    setWhiteTime(0);
+                    setBlackTime(0);
                     break;
                 case MOVE:
                     const move = message.payload;
@@ -45,7 +64,13 @@ export const Game = () => {
     return <div className="justify-center flex">
         <div className="pt-8 max-w-screen-lg w-full">
             <div className="grid grid-cols-6 gap-4 w-full">
-                <div className="col-span-4 w-full flex justify-center">
+                <div className="col-span-4 w-full flex flex-col items-center">
+                    <div className="mb-4">
+                        <Timer 
+                            seconds={playerColor === "black" ? whiteTime : blackTime} 
+                            isActive={chess.turn() === (playerColor === "black" ? "w" : "b")}
+                        />
+                    </div>
                     <ChessBoard 
                         chess={chess} 
                         setBoard={setBoard} 
@@ -53,6 +78,12 @@ export const Game = () => {
                         board={board}
                         playerColor={playerColor}
                     />
+                    <div className="mt-4">
+                        <Timer 
+                            seconds={playerColor === "white" ? whiteTime : blackTime}
+                            isActive={chess.turn() === (playerColor === "white" ? "w" : "b")}
+                        />
+                    </div>
                 </div>
                 <div className="col-span-2 bg-slate-900 w-full flex justify-center">
                     <div className="pt-8">
