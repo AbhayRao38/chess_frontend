@@ -2,7 +2,7 @@ import { Chess, Color, PieceSymbol, Square } from "chess.js";
 import { useState } from "react";
 import { MOVE } from "../screens/Game";
 
-export const ChessBoard = ({ chess, board, socket, setBoard, playerColor, isSpectator = false }: {
+export const ChessBoard = ({ chess, board, socket, setBoard, playerColor }: {
     chess: Chess;
     setBoard: React.Dispatch<React.SetStateAction<({
         square: Square;
@@ -16,11 +16,10 @@ export const ChessBoard = ({ chess, board, socket, setBoard, playerColor, isSpec
     } | null)[][];
     socket: WebSocket;
     playerColor: "white" | "black";
-    isSpectator?: boolean;
 }) => {
     const [from, setFrom] = useState<null | Square>(null);
     const isPlayerTurn = chess.turn() === (playerColor === "white" ? "w" : "b");
-
+    
     // Flip board if player is black
     const displayBoard = playerColor === "black" ? [...board].reverse().map(row => [...row].reverse()) : board;
 
@@ -36,7 +35,7 @@ export const ChessBoard = ({ chess, board, socket, setBoard, playerColor, isSpec
 
                             return <div 
                                 onClick={() => {
-                                    if (isSpectator || !isPlayerTurn) return;
+                                    if (!isPlayerTurn) return;
                                     
                                     if (!from) {
                                         const piece = chess.get(squareRepresentation);
@@ -65,7 +64,7 @@ export const ChessBoard = ({ chess, board, socket, setBoard, playerColor, isSpec
                                 key={j} 
                                 className={`w-16 h-16 ${(i+j)%2 === 0 ? 'bg-green-500' : 'bg-slate-500'} 
                                     ${from === squareRepresentation ? 'border-2 border-yellow-400' : ''}
-                                    ${isSpectator ? 'cursor-not-allowed' : (!isPlayerTurn ? 'cursor-not-allowed' : 'cursor-pointer')}`}
+                                    ${!isPlayerTurn ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                             >
                                 <div className="w-full justify-center flex h-full">
                                     <div className="h-full justify-center flex flex-col">
@@ -77,11 +76,10 @@ export const ChessBoard = ({ chess, board, socket, setBoard, playerColor, isSpec
                     </div>
                 })}
             </div>
-            {!isSpectator && (
-                <div className="mt-4 text-lg font-semibold bg-slate-700 text-white px-4 py-2 rounded">
-                    {isPlayerTurn ? "Your turn" : "Opponent's turn"} 
-                </div>
-            )}
+            <div className="mt-4 text-lg font-semibold bg-slate-700 text-white px-4 py-2 rounded">
+                {isPlayerTurn ? "Your turn" : "Opponent's turn"} 
+            </div>
         </div>
     );
 }
+
