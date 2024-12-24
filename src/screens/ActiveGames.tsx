@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { useSocket } from '../hooks/useSocket';
@@ -18,20 +18,40 @@ export const ActiveGames = () => {
   const socket = useSocket();
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!socket) return;
 
     const fetchGames = () => {
-      socket.send(JSON.stringify({ type: FETCH_GAMES }));
+      try {
+        socket.send(JSON.stringify({ type: FETCH_GAMES }));
+      } catch (err) {
+        console.error('Error sending fetch games request:', err);
+        setError('Failed to fetch games');
+      }
     };
 
     socket.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      if (message.type === GAMES_LIST) {
-        setGames(message.payload.games);
+      try {
+        const message = JSON.parse(event.data);
+        console.log('Received message:', message); // Debug log
+        if (message.type === GAMES_LIST) {
+          setGames(message.payload.games);
+          setLoading(false);
+          setError(null);
+        }
+      } catch (err) {
+        console.error('Error processing message:', err);
+        setError('Failed to process server response');
         setLoading(false);
       }
+    };
+
+    socket.onerror = (event) => {
+      console.error('WebSocket error:', event);
+      setError('Connection error');
+      setLoading(false);
     };
 
     // Initial fetch
@@ -51,6 +71,13 @@ export const ActiveGames = () => {
     );
   }
 
+  const handleWatchGame = (gameId: string) => (event?: MouseEvent<HTMLButtonElement>) => {
+    if (event) {
+      event.stopPropagation();
+    }
+    navigate(`/spectate/${gameId}`);
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 flex justify-center">
       <div className="w-full max-w-4xl px-4 py-8">
@@ -59,7 +86,14 @@ export const ActiveGames = () => {
           <Button onClick={() => navigate('/')}>Back to Home</Button>
         </div>
         
-        {loading ? (
+        {error ? (
+          <div className="text-center text-red-400 py-12">
+            <p className="text-xl">{error}</p>
+            <Button onClick={() => window.location.reload()} className="mt-4">
+              Retry
+            </Button>
+          </div>
+        ) : loading ? (
           <div className="text-center text-gray-400 py-12">
             <p className="text-xl">Loading games...</p>
           </div>
@@ -91,7 +125,7 @@ export const ActiveGames = () => {
                   </p>
                 </div>
                 <Button 
-                  onClick={() => navigate(`/spectate/${game.id}`)}
+                  onClick={handleWatchGame(game.id)}
                   className="w-full"
                 >
                   Watch Game
