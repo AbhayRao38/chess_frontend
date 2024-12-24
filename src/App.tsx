@@ -2,18 +2,20 @@ import './App.css'
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Landing } from './screens/Landing';
 import { Game } from './screens/Game';
-import { Spectate } from './screens/Spectate';
+import { ActiveGames } from './screens/ActiveGames';
+import { SpectateGame } from './screens/SpectateGame';
 
 function App() {
   return (
     <div className='h-screen bg-slate-950'>
-     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Landing />} /> 
-        <Route path="/game" element={<Game />} /> 
-        <Route path="/spectate" element={<Spectate />} />
-      </Routes>
-    </BrowserRouter>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Landing />} /> 
+          <Route path="/game" element={<Game />} />
+          <Route path="/spectate" element={<ActiveGames />} />
+          <Route path="/spectate/:gameId" element={<SpectateGame />} />
+        </Routes>
+      </BrowserRouter>
     </div>
   )
 }

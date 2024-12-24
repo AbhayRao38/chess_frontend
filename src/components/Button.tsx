@@ -1,6 +1,18 @@
+import { ReactNode } from 'react';
 
-export const Button = ({ onClick, children }: { onClick: () => void, children: React.ReactNode }) => {
-    return <button onClick={onClick} className="px-8 py-4 text-2xl bg-green-500 hover:bg-green-700 text-white font-bold rounded">
-        {children}
-    </button>
+interface ButtonProps {
+  onClick: () => void;
+  children: ReactNode;
+  className?: string;
 }
+
+export const Button = ({ onClick, children, className = '' }: ButtonProps) => {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors ${className}`}
+    >
+      {children}
+    </button>
+  );
+};
