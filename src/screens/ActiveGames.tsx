@@ -27,7 +27,7 @@ export const ActiveGames = () => {
       socket.send(JSON.stringify({ type: FETCH_GAMES }));
     } catch (err) {
       console.error('Error sending fetch games request:', err);
-      setError('Failed to fetch games');
+      setError('Failed to fetch games. Please try again.');
     }
   }, [socket]);
 
@@ -49,8 +49,9 @@ export const ActiveGames = () => {
       }
     };
 
-    const handleError = () => {
-      setError('Connection error');
+    const handleError = (event: Event) => {
+      console.error('WebSocket error:', event);
+      setError('Connection error. Please try again.');
       setLoading(false);
     };
 
@@ -67,6 +68,11 @@ export const ActiveGames = () => {
     };
   }, [socket, fetchGames]);
 
+  const handleWatchGame = useCallback((gameId: string) => (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    navigate(`/spectate/${gameId}`);
+  }, [navigate]);
+
   if (!socket) {
     return (
       <div className="min-h-screen bg-slate-950 flex justify-center items-center">
@@ -74,10 +80,6 @@ export const ActiveGames = () => {
       </div>
     );
   }
-
-  const handleWatchGame = useCallback((gameId: string) => {
-    navigate(`/spectate/${gameId}`);
-  }, [navigate]);
 
   return (
     <div className="min-h-screen bg-slate-950 flex justify-center">
@@ -95,7 +97,7 @@ export const ActiveGames = () => {
                 setLoading(true);
                 setError(null);
                 fetchGames();
-              }} 
+              }}
               className="mt-4"
             >
               Retry
@@ -132,7 +134,7 @@ export const ActiveGames = () => {
                   </p>
                 </div>
                 <Button 
-                  onClick={() => handleWatchGame(game.id)}
+                  onClick={handleWatchGame(game.id)}
                   className="w-full"
                 >
                   Watch Game
