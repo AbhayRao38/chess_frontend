@@ -8,6 +8,7 @@ interface Game {
   player1: string;
   player2: string;
   status: string;
+  spectators: number;
 }
 
 export const FETCH_GAMES = "fetch_games";
@@ -32,10 +33,12 @@ export const ActiveGames = () => {
       }
     };
 
-    socket.onmessage = (event) => {
+    // Initial fetch
+    fetchGames();
+
+    const handleMessage = (event: MessageEvent) => {
       try {
         const message = JSON.parse(event.data);
-        console.log('Received message:', message); // Debug log
         if (message.type === GAMES_LIST) {
           setGames(message.payload.games);
           setLoading(false);
@@ -48,20 +51,33 @@ export const ActiveGames = () => {
       }
     };
 
-    socket.onerror = (event) => {
+    const handleError = (event: Event) => {
       console.error('WebSocket error:', event);
       setError('Connection error');
       setLoading(false);
     };
 
-    // Initial fetch
-    fetchGames();
+    socket.addEventListener('message', handleMessage);
+    socket.addEventListener('error', handleError);
 
-    // Fetch games every 5 seconds
-    const interval = setInterval(fetchGames, 5000);
+    // Fetch games every 3 seconds
+    const interval = setInterval(fetchGames, 3000);
 
-    return () => clearInterval(interval);
+    return () => {
+      socket.removeEventListener('message', handleMessage);
+      socket.removeEventListener('error', handleError);
+      clearInterval(interval);
+    };
   }, [socket]);
+
+  const handleWatchGame = (gameId: string) => {
+    return (event?: MouseEvent<HTMLButtonElement>) => {
+      if (event) {
+        event.stopPropagation();
+      }
+      navigate(`/spectate/${gameId}`);
+    };
+  };
 
   if (!socket) {
     return (
@@ -70,13 +86,6 @@ export const ActiveGames = () => {
       </div>
     );
   }
-
-  const handleWatchGame = (gameId: string) => (event?: MouseEvent<HTMLButtonElement>) => {
-    if (event) {
-      event.stopPropagation();
-    }
-    navigate(`/spectate/${gameId}`);
-  };
 
   return (
     <div className="min-h-screen bg-slate-950 flex justify-center">
@@ -104,17 +113,14 @@ export const ActiveGames = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {games.map((game, index) => (
+            {games.map((game) => (
               <div 
                 key={game.id}
-                className="bg-slate-800 rounded-lg p-6 hover:bg-slate-700 transition-colors cursor-pointer"
-                onClick={() => navigate(`/spectate/${game.id}`)}
+                className="bg-slate-800 rounded-lg p-6 hover:bg-slate-700 transition-colors"
               >
-                <h3 className="text-xl font-semibold text-white mb-4">Game {index + 1}</h3>
                 <div className="text-gray-300 mb-4">
-                  <p>Player 1: {game.player1}</p>
-                  <p>Player 2: {game.player2}</p>
-                  <p className="mt-2">
+                  <p className="text-lg font-semibold text-white">{game.player1} vs {game.player2}</p>
+                  <div className="mt-2 flex justify-between items-center">
                     <span className={`inline-block px-2 py-1 rounded ${
                       game.status === 'In Progress' ? 'bg-green-600' :
                       game.status === 'Check' ? 'bg-yellow-600' :
@@ -122,7 +128,10 @@ export const ActiveGames = () => {
                     }`}>
                       {game.status}
                     </span>
-                  </p>
+                    <span className="text-sm">
+                      {game.spectators} {game.spectators === 1 ? 'spectator' : 'spectators'}
+                    </span>
+                  </div>
                 </div>
                 <Button 
                   onClick={handleWatchGame(game.id)}
