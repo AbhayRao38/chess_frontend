@@ -1,4 +1,4 @@
-import { useEffect, useState, MouseEvent } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { useSocket } from '../hooks/useSocket';
@@ -8,7 +8,6 @@ interface Game {
   player1: string;
   player2: string;
   status: string;
-  spectators: number;
 }
 
 export const FETCH_GAMES = "fetch_games";
@@ -21,20 +20,19 @@ export const ActiveGames = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchGames = useCallback(() => {
     if (!socket) return;
 
-    const fetchGames = () => {
-      try {
-        socket.send(JSON.stringify({ type: FETCH_GAMES }));
-      } catch (err) {
-        console.error('Error sending fetch games request:', err);
-        setError('Failed to fetch games');
-      }
-    };
+    try {
+      socket.send(JSON.stringify({ type: FETCH_GAMES }));
+    } catch (err) {
+      console.error('Error sending fetch games request:', err);
+      setError('Failed to fetch games');
+    }
+  }, [socket]);
 
-    // Initial fetch
-    fetchGames();
+  useEffect(() => {
+    if (!socket) return;
 
     const handleMessage = (event: MessageEvent) => {
       try {
@@ -51,8 +49,7 @@ export const ActiveGames = () => {
       }
     };
 
-    const handleError = (event: Event) => {
-      console.error('WebSocket error:', event);
+    const handleError = () => {
       setError('Connection error');
       setLoading(false);
     };
@@ -60,24 +57,15 @@ export const ActiveGames = () => {
     socket.addEventListener('message', handleMessage);
     socket.addEventListener('error', handleError);
 
-    // Fetch games every 3 seconds
-    const interval = setInterval(fetchGames, 3000);
+    fetchGames();
+    const interval = setInterval(fetchGames, 5000);
 
     return () => {
       socket.removeEventListener('message', handleMessage);
       socket.removeEventListener('error', handleError);
       clearInterval(interval);
     };
-  }, [socket]);
-
-  const handleWatchGame = (gameId: string) => {
-    return (event?: MouseEvent<HTMLButtonElement>) => {
-      if (event) {
-        event.stopPropagation();
-      }
-      navigate(`/spectate/${gameId}`);
-    };
-  };
+  }, [socket, fetchGames]);
 
   if (!socket) {
     return (
@@ -87,6 +75,10 @@ export const ActiveGames = () => {
     );
   }
 
+  const handleWatchGame = useCallback((gameId: string) => {
+    navigate(`/spectate/${gameId}`);
+  }, [navigate]);
+
   return (
     <div className="min-h-screen bg-slate-950 flex justify-center">
       <div className="w-full max-w-4xl px-4 py-8">
@@ -94,11 +86,18 @@ export const ActiveGames = () => {
           <h1 className="text-3xl font-bold text-white">Active Games</h1>
           <Button onClick={() => navigate('/')}>Back to Home</Button>
         </div>
-        
+
         {error ? (
           <div className="text-center text-red-400 py-12">
             <p className="text-xl">{error}</p>
-            <Button onClick={() => window.location.reload()} className="mt-4">
+            <Button 
+              onClick={() => {
+                setLoading(true);
+                setError(null);
+                fetchGames();
+              }} 
+              className="mt-4"
+            >
               Retry
             </Button>
           </div>
@@ -118,9 +117,11 @@ export const ActiveGames = () => {
                 key={game.id}
                 className="bg-slate-800 rounded-lg p-6 hover:bg-slate-700 transition-colors"
               >
+                <h3 className="text-xl font-semibold text-white mb-4">Game {game.id}</h3>
                 <div className="text-gray-300 mb-4">
-                  <p className="text-lg font-semibold text-white">{game.player1} vs {game.player2}</p>
-                  <div className="mt-2 flex justify-between items-center">
+                  <p>Player 1: {game.player1}</p>
+                  <p>Player 2: {game.player2}</p>
+                  <p className="mt-2">
                     <span className={`inline-block px-2 py-1 rounded ${
                       game.status === 'In Progress' ? 'bg-green-600' :
                       game.status === 'Check' ? 'bg-yellow-600' :
@@ -128,13 +129,10 @@ export const ActiveGames = () => {
                     }`}>
                       {game.status}
                     </span>
-                    <span className="text-sm">
-                      {game.spectators} {game.spectators === 1 ? 'spectator' : 'spectators'}
-                    </span>
-                  </div>
+                  </p>
                 </div>
                 <Button 
-                  onClick={handleWatchGame(game.id)}
+                  onClick={() => handleWatchGame(game.id)}
                   className="w-full"
                 >
                   Watch Game
