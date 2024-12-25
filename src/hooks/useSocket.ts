@@ -4,7 +4,6 @@ const WS_URL = "wss://chess-backend-dark.onrender.com";
 
 export const useSocket = () => {
     const [socket, setSocket] = useState<WebSocket | null>(null);
-    const [isConnecting, setIsConnecting] = useState(true);
 
     const connect = useCallback(() => {
         try {
@@ -12,12 +11,10 @@ export const useSocket = () => {
 
             ws.onopen = () => {
                 setSocket(ws);
-                setIsConnecting(false);
             };
 
             ws.onclose = () => {
                 setSocket(null);
-                setIsConnecting(true);
                 // Try to reconnect after 2 seconds
                 setTimeout(connect, 2000);
             };
@@ -27,7 +24,6 @@ export const useSocket = () => {
             };
         } catch (err) {
             console.error('WebSocket connection error:', err);
-            setIsConnecting(true);
             // Try to reconnect after 2 seconds
             setTimeout(connect, 2000);
         }
