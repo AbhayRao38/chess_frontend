@@ -1,27 +1,15 @@
-import { ReactNode, MouseEvent } from 'react';
+import React from "react";
 
-interface ButtonProps {
-  onClick: (event: MouseEvent<HTMLButtonElement>) => void;
-  children: ReactNode;
-  className?: string;
-  disabled?: boolean;
-}
+type ButtonProps = {
+  onClick: () => void;
+  children: React.ReactNode;
+};
 
-export const Button = ({ 
-  onClick, 
-  children, 
-  className = '', 
-  disabled = false 
-}: ButtonProps) => {
+export const Button: React.FC<ButtonProps> = ({ onClick, children }) => {
   return (
     <button
       onClick={onClick}
-      disabled={disabled}
-      className={`px-6 py-3 bg-blue-600 text-white rounded-lg transition-colors
-        ${disabled 
-          ? 'opacity-50 cursor-not-allowed' 
-          : 'hover:bg-blue-700'} 
-        ${className}`}
+      className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
     >
       {children}
     </button>

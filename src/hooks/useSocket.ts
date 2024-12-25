@@ -1,27 +1,35 @@
 import { useEffect, useState } from "react";
 
-const WS_URL = "wss://chess-backend-dark.onrender.com";
+const BACKEND_URL = "wss://chess-backend-dark.onrender.com";
 
 export const useSocket = () => {
   const [socket, setSocket] = useState<WebSocket | null>(null);
 
   useEffect(() => {
-    const ws = new WebSocket(WS_URL);
+    let isMounted = true;
+    const ws = new WebSocket(BACKEND_URL);
 
     ws.onopen = () => {
-      setSocket(ws);
+      console.log("WebSocket connection established.");
     };
 
     ws.onclose = () => {
-      setSocket(null);
+      console.log("WebSocket connection closed. Reconnecting...");
+      if (isMounted) {
+        setTimeout(() => setSocket(new WebSocket(BACKEND_URL)), 3000);
+      }
     };
 
     ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      ws.close();
+      console.error("WebSocket error:", error);
     };
 
+    if (isMounted) {
+      setSocket(ws);
+    }
+
     return () => {
+      isMounted = false;
       ws.close();
     };
   }, []);
