@@ -33,8 +33,10 @@ export const Game = () => {
                     setBoard(chess.board());
                     setStarted(true);
                     setPlayerColor(message.payload.color);
-                    setWhiteTime(message.payload.timeControl || 600);
-                    setBlackTime(message.payload.timeControl || 600);
+                    if (message.payload.timeControl) {
+                        setWhiteTime(message.payload.timeControl);
+                        setBlackTime(message.payload.timeControl);
+                    }
                     break;
                 case MOVE:
                     const move = message.payload;
@@ -42,10 +44,10 @@ export const Game = () => {
                     setBoard(chess.board());
                     break;
                 case GAME_UPDATE:
-                    if (message.payload.whiteTime !== undefined) {
+                    if (typeof message.payload.whiteTime === 'number') {
                         setWhiteTime(message.payload.whiteTime);
                     }
-                    if (message.payload.blackTime !== undefined) {
+                    if (typeof message.payload.blackTime === 'number') {
                         setBlackTime(message.payload.blackTime);
                     }
                     if (message.payload.fen) {
@@ -72,7 +74,7 @@ export const Game = () => {
                         <div className="mb-4">
                             <Timer 
                                 seconds={playerColor === "black" ? whiteTime : blackTime} 
-                                isActive={!gameOver && chess.turn() === (playerColor === "black" ? "w" : "b")}
+                                isActive={started && !gameOver && chess.turn() === (playerColor === "black" ? "w" : "b")}
                             />
                         </div>
                         <ChessBoard 
@@ -86,7 +88,7 @@ export const Game = () => {
                         <div className="mt-4">
                             <Timer 
                                 seconds={playerColor === "white" ? whiteTime : blackTime}
-                                isActive={!gameOver && chess.turn() === (playerColor === "white" ? "w" : "b")}
+                                isActive={started && !gameOver && chess.turn() === (playerColor === "white" ? "w" : "b")}
                             />
                         </div>
                     </div>
