@@ -18,37 +18,65 @@ export const SpectateGame = () => {
   const [board, setBoard] = useState(chess.board());
   const [whiteTime, setWhiteTime] = useState(0);
   const [blackTime, setBlackTime] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!socket || !gameId) return;
 
+    // Join as spectator
     socket.send(JSON.stringify({
       type: JOIN_SPECTATE,
       payload: { gameId }
     }));
 
     socket.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-
-      switch (message.type) {
-        case GAME_STATE:
-          chess.load(message.payload.fen);
-          setBoard(chess.board());
-          setWhiteTime(message.payload.whiteTime);
-          setBlackTime(message.payload.blackTime);
-          break;
-        case GAME_UPDATE:
-          chess.move(message.payload.move);
-          setBoard(chess.board());
-          setWhiteTime(message.payload.whiteTime);
-          setBlackTime(message.payload.blackTime);
-          break;
+      try {
+        const message = JSON.parse(event.data);
+        
+        switch (message.type) {
+          case GAME_STATE:
+            chess.load(message.payload.fen);
+            setBoard(chess.board());
+            setWhiteTime(message.payload.whiteTime);
+            setBlackTime(message.payload.blackTime);
+            break;
+          case GAME_UPDATE:
+            if (message.payload.fen) {
+              chess.load(message.payload.fen);
+              setBoard(chess.board());
+              setWhiteTime(message.payload.whiteTime);
+              setBlackTime(message.payload.blackTime);
+            }
+            break;
+        }
+      } catch (err) {
+        console.error('Error processing message:', err);
+        setError('Failed to process game update');
       }
+    };
+
+    return () => {
+      // Cleanup spectator connection
+      socket.send(JSON.stringify({
+        type: 'leave_spectate',
+        payload: { gameId }
+      }));
     };
   }, [socket, gameId, chess]);
 
   if (!socket) {
-    return <div className="text-white text-center py-8">Connecting...</div>;
+    return <div className="text-white text-center py-8">Connecting to server...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="text-red-500 text-center py-8">
+        {error}
+        <Button onClick={() => window.location.reload()} className="mt-4">
+          Retry Connection
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -63,16 +91,14 @@ export const SpectateGame = () => {
           <div className="col-span-4 flex flex-col items-center">
             <Timer seconds={whiteTime} isActive={chess.turn() === 'w'} />
             <div className="my-4">
-              {socket && (
-                <ChessBoard
-                  chess={chess}
-                  board={board}
-                  setBoard={setBoard}
-                  socket={socket}
-                  playerColor="white"
-                  isSpectator={true}
-                />
-              )}
+              <ChessBoard
+                chess={chess}
+                board={board}
+                setBoard={setBoard}
+                socket={socket}
+                playerColor="white"
+                isSpectator={true}
+              />
             </div>
             <Timer seconds={blackTime} isActive={chess.turn() === 'b'} />
           </div>

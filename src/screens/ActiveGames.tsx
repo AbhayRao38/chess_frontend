@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { useSocket } from '../hooks/useSocket';
@@ -20,21 +20,19 @@ export const ActiveGames = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchGames = useCallback(() => {
-    if (!socket) return;
-
-    try {
-      socket.send(JSON.stringify({ type: FETCH_GAMES }));
-    } catch (err) {
-      console.error('Error sending fetch games request:', err);
-      setError('Failed to fetch games. Please try again.');
-    }
-  }, [socket]);
-
   useEffect(() => {
     if (!socket) return;
 
-    const handleMessage = (event: MessageEvent) => {
+    const fetchGames = () => {
+      try {
+        socket.send(JSON.stringify({ type: FETCH_GAMES }));
+      } catch (err) {
+        console.error('Error sending fetch games request:', err);
+        setError('Failed to fetch games');
+      }
+    };
+
+    socket.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
         if (message.type === GAMES_LIST) {
@@ -49,29 +47,22 @@ export const ActiveGames = () => {
       }
     };
 
-    const handleError = (event: Event) => {
-      console.error('WebSocket error:', event);
-      setError('Connection error. Please try again.');
-      setLoading(false);
-    };
-
-    socket.addEventListener('message', handleMessage);
-    socket.addEventListener('error', handleError);
-
+    // Initial fetch
     fetchGames();
+
+    // Fetch games every 5 seconds
     const interval = setInterval(fetchGames, 5000);
 
-    return () => {
-      socket.removeEventListener('message', handleMessage);
-      socket.removeEventListener('error', handleError);
-      clearInterval(interval);
-    };
-  }, [socket, fetchGames]);
+    return () => clearInterval(interval);
+  }, [socket]);
 
-  const handleWatchGame = useCallback((gameId: string) => (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation();
+  const handleWatchGame = (gameId: string) => (event?: MouseEvent<HTMLButtonElement>) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     navigate(`/spectate/${gameId}`);
-  }, [navigate]);
+  };
 
   if (!socket) {
     return (
@@ -92,14 +83,7 @@ export const ActiveGames = () => {
         {error ? (
           <div className="text-center text-red-400 py-12">
             <p className="text-xl">{error}</p>
-            <Button 
-              onClick={() => {
-                setLoading(true);
-                setError(null);
-                fetchGames();
-              }}
-              className="mt-4"
-            >
+            <Button onClick={() => window.location.reload()} className="mt-4">
               Retry
             </Button>
           </div>
