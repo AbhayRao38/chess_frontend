@@ -9,20 +9,27 @@ export const useSocket = () => {
 
   const connect = useCallback(() => {
     try {
+      console.log('Attempting to connect to WebSocket...');
       const ws = new WebSocket(WS_URL);
 
       ws.onopen = () => {
+        console.log('WebSocket connected successfully');
         setSocket(ws);
         setReconnectAttempts(0);
       };
 
       ws.onclose = () => {
+        console.log('WebSocket connection closed');
         setSocket(null);
         if (reconnectAttempts < maxReconnectAttempts) {
+          const delay = 1000 * Math.pow(2, reconnectAttempts);
+          console.log(`Attempting to reconnect in ${delay}ms (Attempt ${reconnectAttempts + 1}/${maxReconnectAttempts})`);
           setTimeout(() => {
             setReconnectAttempts(prev => prev + 1);
             connect();
-          }, 1000 * Math.pow(2, reconnectAttempts)); // Exponential backoff
+          }, delay);
+        } else {
+          console.error('Max reconnect attempts reached. Please refresh the page.');
         }
       };
 
@@ -43,6 +50,7 @@ export const useSocket = () => {
 
     return () => {
       if (ws) {
+        console.log('Closing WebSocket connection');
         ws.close();
       }
     };

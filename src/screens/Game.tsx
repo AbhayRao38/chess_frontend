@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Button } from "../components/Button"
 import { ChessBoard } from "../components/ChessBoard"
 import { useSocket } from "../hooks/useSocket";
@@ -10,7 +10,7 @@ export const INIT_GAME = "init_game";
 export const MOVE = "move";
 export const GAME_OVER = "game_over";
 
-export const Game = () => {
+export const Game: React.FC = () => {
   const socket = useSocket();
   const navigate = useNavigate();
   const [chess] = useState(new Chess());
@@ -36,6 +36,7 @@ export const Game = () => {
   }, [started, chess]);
 
   const handleGameMessage = useCallback((message: any) => {
+    console.log('Received game message:', message);
     switch (message.type) {
       case INIT_GAME:
         setBoard(chess.board());
@@ -43,15 +44,19 @@ export const Game = () => {
         setPlayerColor(message.payload.color);
         setWhiteTime(0);
         setBlackTime(0);
+        console.log('Game initialized:', message.payload);
         break;
       case MOVE:
         try {
           const move = chess.move(message.payload.move);
           if (move) {
             setBoard(chess.board());
+            console.log('Move applied:', move);
+          } else {
+            console.error('Invalid move received:', message.payload.move);
           }
         } catch (error) {
-          console.error('Invalid move received:', error);
+          console.error('Error applying move:', error);
         }
         break;
       case GAME_OVER:
@@ -59,10 +64,13 @@ export const Game = () => {
           winner: message.payload.winner,
           reason: message.payload.reason
         });
+        console.log('Game over:', message.payload);
         break;
       case 'error':
         console.error('Game error:', message.payload.message);
         break;
+      default:
+        console.warn('Unknown message type:', message.type);
     }
   }, [chess]);
 
@@ -82,6 +90,10 @@ export const Game = () => {
       socket.onmessage = null;
     };
   }, [socket, handleGameMessage]);
+
+  useEffect(() => {
+    console.log('Board updated:', board);
+  }, [board]);
 
   if (!socket) {
     return (

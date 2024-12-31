@@ -1,5 +1,5 @@
+import React, { useState, useCallback } from "react";
 import { Chess, Color, PieceSymbol, Square } from "chess.js";
-import { useState, useCallback } from "react";
 import { MOVE } from "../screens/Game";
 
 interface ChessBoardProps {
@@ -19,15 +19,14 @@ interface ChessBoardProps {
   isSpectator?: boolean;
 }
 
-export const ChessBoard = ({
+export const ChessBoard: React.FC<ChessBoardProps> = ({
   chess,
   board,
   socket,
-  setBoard,
   playerColor,
   isSpectator = false
-}: ChessBoardProps) => {
-  const [from, setFrom] = useState<null | Square>(null);
+}) => {
+  const [from, setFrom] = useState<Square | null>(null);
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const isPlayerTurn = chess.turn() === (playerColor === "white" ? "w" : "b");
   const displayBoard = playerColor === "black" ? [...board].reverse().map(row => [...row].reverse()) : board;
@@ -53,22 +52,17 @@ export const ChessBoard = ({
           }
         }));
         
-        const move = chess.move({
-          from,
-          to: squareRepresentation
-        });
-
-        if (move) {
-          setBoard(chess.board());
-        }
+        // Remove local move application
+        // The move will be applied when confirmed by the server
+        console.log('Move sent to server:', { from, to: squareRepresentation });
       } catch (error) {
-        console.error('Invalid move:', error);
+        console.error('Error sending move:', error);
       }
       
       setFrom(null);
       setSelectedSquare(null);
     }
-  }, [from, chess, isPlayerTurn, isSpectator, playerColor, setBoard, socket]);
+  }, [from, chess, isPlayerTurn, isSpectator, playerColor, socket]);
 
   const getPieceImagePath = (piece: { color: Color; type: PieceSymbol }) => {
     return `/${piece.color === "b" ? piece.type : `${piece.type.toUpperCase()} copy`}.png`;
