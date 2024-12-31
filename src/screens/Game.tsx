@@ -1,119 +1,146 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Button } from "../components/Button"
 import { ChessBoard } from "../components/ChessBoard"
 import { useSocket } from "../hooks/useSocket";
 import { Chess } from 'chess.js'
 import { Timer } from "../components/Timer";
+import { useNavigate } from "react-router-dom";
 
 export const INIT_GAME = "init_game";
 export const MOVE = "move";
 export const GAME_OVER = "game_over";
-export const GAME_UPDATE = "game_update";
 
 export const Game = () => {
-    const socket = useSocket();
-    const [chess] = useState(new Chess());
-    const [board, setBoard] = useState(chess.board());
-    const [started, setStarted] = useState(false);
-    const [playerColor, setPlayerColor] = useState<"white" | "black">("white");
-    const [whiteTime, setWhiteTime] = useState(600);
-    const [blackTime, setBlackTime] = useState(600);
-    const [gameOver, setGameOver] = useState(false);
-    const [winner, setWinner] = useState<string | null>(null);
-    const [gameOverReason, setGameOverReason] = useState<string | null>(null);
+  const socket = useSocket();
+  const navigate = useNavigate();
+  const [chess] = useState(new Chess());
+  const [board, setBoard] = useState(chess.board());
+  const [started, setStarted] = useState(false);
+  const [playerColor, setPlayerColor] = useState<"white" | "black">("white");
+  const [whiteTime, setWhiteTime] = useState(0);
+  const [blackTime, setBlackTime] = useState(0);
+  const [gameOver, setGameOver] = useState<{ winner: string; reason: string } | null>(null);
 
-    useEffect(() => {
-        if (!socket) return;
+  useEffect(() => {
+    if (!started) return;
 
-        socket.onmessage = (event) => {
-            const message = JSON.parse(event.data);
+    const interval = setInterval(() => {
+      if (chess.turn() === 'w') {
+        setWhiteTime(prev => prev + 1);
+      } else {
+        setBlackTime(prev => prev + 1);
+      }
+    }, 1000);
 
-            switch (message.type) {
-                case INIT_GAME:
-                    setBoard(chess.board());
-                    setStarted(true);
-                    setPlayerColor(message.payload.color);
-                    if (message.payload.timeControl) {
-                        setWhiteTime(message.payload.timeControl);
-                        setBlackTime(message.payload.timeControl);
-                    }
-                    break;
-                case MOVE:
-                    const move = message.payload;
-                    chess.move(move);
-                    setBoard(chess.board());
-                    break;
-                case GAME_UPDATE:
-                    if (typeof message.payload.whiteTime === 'number') {
-                        setWhiteTime(message.payload.whiteTime);
-                    }
-                    if (typeof message.payload.blackTime === 'number') {
-                        setBlackTime(message.payload.blackTime);
-                    }
-                    if (message.payload.fen) {
-                        chess.load(message.payload.fen);
-                        setBoard(chess.board());
-                    }
-                    break;
-                case GAME_OVER:
-                    setGameOver(true);
-                    setWinner(message.payload.winner);
-                    setGameOverReason(message.payload.reason);
-                    break;
-            }
-        };
-    }, [socket]);
+    return () => clearInterval(interval);
+  }, [started, chess]);
 
-    if (!socket) return <div className="text-white">Connecting...</div>;
+  const handleGameMessage = useCallback((message: any) => {
+    switch (message.type) {
+      case INIT_GAME:
+        setBoard(chess.board());
+        setStarted(true);
+        setPlayerColor(message.payload.color);
+        setWhiteTime(0);
+        setBlackTime(0);
+        break;
+      case MOVE:
+        try {
+          const move = chess.move(message.payload.move);
+          if (move) {
+            setBoard(chess.board());
+          }
+        } catch (error) {
+          console.error('Invalid move received:', error);
+        }
+        break;
+      case GAME_OVER:
+        setGameOver({
+          winner: message.payload.winner,
+          reason: message.payload.reason
+        });
+        break;
+      case 'error':
+        console.error('Game error:', message.payload.message);
+        break;
+    }
+  }, [chess]);
 
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        handleGameMessage(message);
+      } catch (error) {
+        console.error('Error processing message:', error);
+      }
+    };
+
+    return () => {
+      socket.onmessage = null;
+    };
+  }, [socket, handleGameMessage]);
+
+  if (!socket) {
     return (
-        <div className="justify-center flex">
-            <div className="pt-8 max-w-screen-lg w-full">
-                <div className="grid grid-cols-6 gap-4 w-full">
-                    <div className="col-span-4 w-full flex flex-col items-center">
-                        <div className="mb-4">
-                            <Timer 
-                                seconds={playerColor === "black" ? whiteTime : blackTime} 
-                                isActive={started && !gameOver && chess.turn() === (playerColor === "black" ? "w" : "b")}
-                            />
-                        </div>
-                        <ChessBoard 
-                            chess={chess} 
-                            setBoard={setBoard} 
-                            socket={socket} 
-                            board={board}
-                            playerColor={playerColor}
-                            disabled={gameOver}
-                        />
-                        <div className="mt-4">
-                            <Timer 
-                                seconds={playerColor === "white" ? whiteTime : blackTime}
-                                isActive={started && !gameOver && chess.turn() === (playerColor === "white" ? "w" : "b")}
-                            />
-                        </div>
-                    </div>
-                    <div className="col-span-2 bg-slate-900 w-full flex flex-col items-center">
-                        <div className="pt-8">
-                            {!started && (
-                                <Button 
-                                    onClick={() => {
-                                        socket.send(JSON.stringify({ type: INIT_GAME }));
-                                    }}
-                                >
-                                    Play
-                                </Button>
-                            )}
-                            {gameOver && (
-                                <div className="text-white text-center">
-                                    <h2 className="text-xl font-bold mb-2">Game Over</h2>
-                                    <p>{winner === playerColor ? "You won!" : "You lost!"}</p>
-                                    <p className="text-sm text-gray-400">Reason: {gameOverReason}</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="text-white text-xl">Connecting to server...</div>
+      </div>
     );
-}
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950 flex justify-center">
+      <div className="pt-8 max-w-screen-lg w-full px-4">
+        <div className="grid grid-cols-1 lg:grid-cols-6 gap-4 w-full">
+          <div className="lg:col-span-4 w-full flex flex-col items-center">
+            <div className="mb-4">
+              <Timer 
+                seconds={playerColor === "black" ? whiteTime : blackTime} 
+                isActive={chess.turn() === (playerColor === "black" ? "w" : "b")}
+              />
+            </div>
+            <ChessBoard 
+              chess={chess} 
+              setBoard={setBoard} 
+              socket={socket} 
+              board={board}
+              playerColor={playerColor}
+            />
+            <div className="mt-4">
+              <Timer 
+                seconds={playerColor === "white" ? whiteTime : blackTime}
+                isActive={chess.turn() === (playerColor === "white" ? "w" : "b")}
+              />
+            </div>
+          </div>
+          <div className="lg:col-span-2 bg-slate-900 w-full rounded-lg p-6">
+            <div className="flex flex-col gap-4">
+              {!started && (
+                <Button onClick={() => {
+                  socket.send(JSON.stringify({
+                    type: INIT_GAME
+                  }));
+                }}>
+                  Play
+                </Button>
+              )}
+              <Button onClick={() => navigate('/')}>
+                Back to Home
+              </Button>
+              {gameOver && (
+                <div className="text-white text-center p-4 bg-slate-800 rounded-lg">
+                  <h3 className="text-xl font-bold mb-2">Game Over</h3>
+                  <p className="mb-2">{gameOver.winner} wins!</p>
+                  <p className="text-gray-400">{gameOver.reason}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

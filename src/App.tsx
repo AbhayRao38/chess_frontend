@@ -7,17 +7,17 @@ import { SpectateGame } from './screens/SpectateGame';
 
 function App() {
   return (
-    <div className='h-screen bg-slate-950'>
+    <div className="min-h-screen bg-slate-950">
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Landing />} /> 
+          <Route path="/" element={<Landing />} />
           <Route path="/game" element={<Game />} />
           <Route path="/spectate" element={<ActiveGames />} />
           <Route path="/spectate/:gameId" element={<SpectateGame />} />
         </Routes>
       </BrowserRouter>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

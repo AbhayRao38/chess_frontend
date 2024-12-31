@@ -1,4 +1,4 @@
-import { useEffect, useState, MouseEvent } from 'react';
+import { useEffect, useState, MouseEvent, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { useSocket } from '../hooks/useSocket';
@@ -20,19 +20,21 @@ export const ActiveGames = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchGames = useCallback(() => {
+    if (!socket) return;
+    
+    try {
+      socket.send(JSON.stringify({ type: FETCH_GAMES }));
+    } catch (err) {
+      console.error('Error sending fetch games request:', err);
+      setError('Failed to fetch games');
+    }
+  }, [socket]);
+
   useEffect(() => {
     if (!socket) return;
 
-    const fetchGames = () => {
-      try {
-        socket.send(JSON.stringify({ type: FETCH_GAMES }));
-      } catch (err) {
-        console.error('Error sending fetch games request:', err);
-        setError('Failed to fetch games');
-      }
-    };
-
-    socket.onmessage = (event) => {
+    const handleMessage = (event: MessageEvent) => {
       try {
         const message = JSON.parse(event.data);
         if (message.type === GAMES_LIST) {
@@ -47,22 +49,24 @@ export const ActiveGames = () => {
       }
     };
 
-    // Initial fetch
+    socket.addEventListener('message', handleMessage);
     fetchGames();
 
-    // Fetch games every 5 seconds
     const interval = setInterval(fetchGames, 5000);
 
-    return () => clearInterval(interval);
-  }, [socket]);
+    return () => {
+      socket.removeEventListener('message', handleMessage);
+      clearInterval(interval);
+    };
+  }, [socket, fetchGames]);
 
-  const handleWatchGame = (gameId: string) => (event?: MouseEvent<HTMLButtonElement>) => {
+  const handleWatchGame = useCallback((gameId: string) => (event?: MouseEvent<HTMLButtonElement>) => {
     if (event) {
       event.preventDefault();
       event.stopPropagation();
     }
     navigate(`/spectate/${gameId}`);
-  };
+  }, [navigate]);
 
   if (!socket) {
     return (
@@ -83,7 +87,11 @@ export const ActiveGames = () => {
         {error ? (
           <div className="text-center text-red-400 py-12">
             <p className="text-xl">{error}</p>
-            <Button onClick={() => window.location.reload()} className="mt-4">
+            <Button onClick={() => {
+              setError(null);
+              setLoading(true);
+              fetchGames();
+            }} className="mt-4">
               Retry
             </Button>
           </div>
@@ -95,24 +103,28 @@ export const ActiveGames = () => {
           <div className="text-center text-gray-400 py-12">
             <p className="text-xl">No active games at the moment</p>
             <p className="mt-2">Start a new game or check back later</p>
+            <Button onClick={() => navigate('/game')} className="mt-4">
+              Start New Game
+            </Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {games.map((game) => (
               <div 
                 key={game.id}
-                className="bg-slate-800 rounded-lg p-6 hover:bg-slate-700 transition-colors"
+                className="bg-slate-800 rounded-lg p-6 hover:bg-slate-700 transition-all duration-200 transform hover:-translate-y-1"
               >
                 <h3 className="text-xl font-semibold text-white mb-4">Game {game.id}</h3>
                 <div className="text-gray-300 mb-4">
                   <p>Player 1: {game.player1}</p>
                   <p>Player 2: {game.player2}</p>
                   <p className="mt-2">
-                    <span className={`inline-block px-2 py-1 rounded ${
-                      game.status === 'In Progress' ? 'bg-green-600' :
-                      game.status === 'Check' ? 'bg-yellow-600' :
-                      'bg-red-600'
-                    }`}>
+                    <span className={`
+                      inline-block px-2 py-1 rounded
+                      ${game.status === 'In Progress' ? 'bg-green-600' :
+                        game.status === 'Check' ? 'bg-yellow-600' :
+                        'bg-red-600'}
+                    `}>
                       {game.status}
                     </span>
                   </p>

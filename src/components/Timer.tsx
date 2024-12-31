@@ -10,8 +10,15 @@ export const Timer: React.FC<TimerProps> = ({ seconds, isActive }) => {
   const remainingSeconds = seconds % 60;
 
   return (
-    <div className={`text-2xl font-mono font-bold ${isActive ? 'text-white' : 'text-gray-500'}`}>
+    <div className={`
+      text-2xl 
+      font-mono 
+      font-bold 
+      transition-colors 
+      duration-300
+      ${isActive ? 'text-white scale-110' : 'text-gray-500'}
+    `}>
       {String(minutes).padStart(2, '0')}:{String(remainingSeconds).padStart(2, '0')}
     </div>
   );
-}
+};
