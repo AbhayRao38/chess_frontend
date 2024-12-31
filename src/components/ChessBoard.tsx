@@ -60,7 +60,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
             type: MOVE,
             payload: { move }
           }));
-          console.log('Move applied locally:', move);
+          console.log('Move sent to server:', move);
         } else {
           console.error('Invalid move:', move);
         }

@@ -143,9 +143,11 @@ export const Game: React.FC = () => {
                   Play
                 </Button>
               )}
-              <Button onClick={() => navigate('/')}>
-                Back to Home
-              </Button>
+              {!started && (
+                <Button onClick={() => navigate('/')}>
+                  Back to Home
+                </Button>
+              )}
               {gameOver && (
                 <div className="text-white text-center p-4 bg-slate-800 rounded-lg">
                   <h3 className="text-xl font-bold mb-2">Game Over</h3>
