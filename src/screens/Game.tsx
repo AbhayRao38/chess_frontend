@@ -50,21 +50,26 @@ export const Game: React.FC = () => {
       case MOVE:
         try {
           const newChess = new Chess(chess.fen());
-          console.log('Received move:', message.payload.move);
-          console.log('Current FEN before move:', newChess.fen());
-          if (message.payload.move) {
-            const move = newChess.move(message.payload.move);
-            if (move) {
-              console.log('Move applied successfully:', move);
+          console.log('Received move payload:', message.payload);
+          if (message.payload && message.payload.from && message.payload.to) {
+            const move = {
+              from: message.payload.from,
+              to: message.payload.to,
+              promotion: message.payload.promotion
+            };
+            console.log('Attempting to apply move:', move);
+            const result = newChess.move(move);
+            if (result) {
+              console.log('Move applied successfully:', result);
               console.log('New FEN after move:', newChess.fen());
               setChess(newChess);
               setBoard(newChess.board());
             } else {
-              console.error('Invalid move received:', message.payload.move);
+              console.error('Invalid move:', move);
               console.log('Current board state:', newChess.fen());
             }
           } else {
-            console.error('No move data received in payload');
+            console.error('Invalid move payload received:', message.payload);
           }
         } catch (error) {
           console.error('Error applying move:', error);
@@ -100,6 +105,27 @@ export const Game: React.FC = () => {
 
     return () => {
       socket.onmessage = null;
+    };
+  }, [socket, handleGameMessage]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleMessage = (event: MessageEvent) => {
+      console.log('Raw WebSocket message received:', event.data);
+      try {
+        const message = JSON.parse(event.data);
+        console.log('Parsed WebSocket message:', message);
+        handleGameMessage(message);
+      } catch (error) {
+        console.error('Error processing message:', error);
+      }
+    };
+
+    socket.addEventListener('message', handleMessage);
+
+    return () => {
+      socket.removeEventListener('message', handleMessage);
     };
   }, [socket, handleGameMessage]);
 
