@@ -4,6 +4,7 @@ import { MOVE } from "../screens/Game";
 
 interface ChessBoardProps {
   chess: Chess;
+  setChess: React.Dispatch<React.SetStateAction<Chess>>;
   setBoard: React.Dispatch<React.SetStateAction<({
     square: Square;
     type: PieceSymbol;
@@ -21,8 +22,10 @@ interface ChessBoardProps {
 
 export const ChessBoard: React.FC<ChessBoardProps> = ({
   chess,
+  setChess,
   board,
   socket,
+  setBoard,
   playerColor,
   isSpectator = false
 }) => {
@@ -42,27 +45,33 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
       }
     } else {
       try {
-        socket.send(JSON.stringify({
-          type: MOVE,
-          payload: {
-            move: {
-              from,
-              to: squareRepresentation
-            }
-          }
-        }));
-        
-        // Remove local move application
-        // The move will be applied when confirmed by the server
-        console.log('Move sent to server:', { from, to: squareRepresentation });
+        const move = {
+          from,
+          to: squareRepresentation
+        };
+
+        const newChess = new Chess(chess.fen());
+        const result = newChess.move(move);
+
+        if (result) {
+          setChess(newChess);
+          setBoard(newChess.board());
+          socket.send(JSON.stringify({
+            type: MOVE,
+            payload: { move }
+          }));
+          console.log('Move applied locally:', move);
+        } else {
+          console.error('Invalid move:', move);
+        }
       } catch (error) {
-        console.error('Error sending move:', error);
+        console.error('Error applying move:', error);
       }
       
       setFrom(null);
       setSelectedSquare(null);
     }
-  }, [from, chess, isPlayerTurn, isSpectator, playerColor, socket]);
+  }, [from, chess, isPlayerTurn, isSpectator, playerColor, setBoard, setChess, socket]);
 
   const getPieceImagePath = (piece: { color: Color; type: PieceSymbol }) => {
     return `/${piece.color === "b" ? piece.type : `${piece.type.toUpperCase()} copy`}.png`;

@@ -13,7 +13,7 @@ export const GAME_OVER = "game_over";
 export const Game: React.FC = () => {
   const socket = useSocket();
   const navigate = useNavigate();
-  const [chess] = useState(new Chess());
+  const [chess, setChess] = useState(new Chess());
   const [board, setBoard] = useState(chess.board());
   const [started, setStarted] = useState(false);
   const [playerColor, setPlayerColor] = useState<"white" | "black">("white");
@@ -39,6 +39,7 @@ export const Game: React.FC = () => {
     console.log('Received game message:', message);
     switch (message.type) {
       case INIT_GAME:
+        setChess(new Chess());
         setBoard(chess.board());
         setStarted(true);
         setPlayerColor(message.payload.color);
@@ -48,9 +49,11 @@ export const Game: React.FC = () => {
         break;
       case MOVE:
         try {
-          const move = chess.move(message.payload.move);
+          const newChess = new Chess(chess.fen());
+          const move = newChess.move(message.payload.move);
           if (move) {
-            setBoard(chess.board());
+            setChess(newChess);
+            setBoard(newChess.board());
             console.log('Move applied:', move);
           } else {
             console.error('Invalid move received:', message.payload.move);
@@ -116,6 +119,7 @@ export const Game: React.FC = () => {
             </div>
             <ChessBoard 
               chess={chess} 
+              setChess={setChess}
               setBoard={setBoard} 
               socket={socket} 
               board={board}
