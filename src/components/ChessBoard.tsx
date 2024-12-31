@@ -70,6 +70,10 @@ export const ChessBoard = ({
     }
   }, [from, chess, isPlayerTurn, isSpectator, playerColor, setBoard, socket]);
 
+  const getPieceImagePath = (piece: { color: Color; type: PieceSymbol }) => {
+    return `/${piece.color === "b" ? piece.type : `${piece.type.toUpperCase()} copy`}.png`;
+  };
+
   return (
     <div className="flex flex-col items-center">
       <div className="text-white-200">
@@ -103,7 +107,7 @@ export const ChessBoard = ({
                       {square && (
                         <img 
                           className="w-6 transition-transform duration-200 hover:scale-110" 
-                          src={`/${square.color === "b" ? square.type : `${square.type.toUpperCase()}`}.png`}
+                          src={getPieceImagePath(square)}
                           alt={`${square.color} ${square.type}`}
                         />
                       )}
