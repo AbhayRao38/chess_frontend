@@ -98,14 +98,18 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                   onClick={() => handleSquareClick(squareRepresentation)}
                   key={j} 
                   className={`
-                    w-16 h-16 
+                    w-16 h-16 relative
                     ${(i+j)%2 === 0 ? 'bg-green-500' : 'bg-slate-500'}
                     ${isSelected ? 'border-2 border-yellow-400' : ''}
-                    ${isPossibleMove ? 'border-2 border-blue-400' : ''}
                     ${isSpectator ? 'cursor-not-allowed' : (!isPlayerTurn ? 'cursor-not-allowed' : 'cursor-pointer')}
                     transition-all duration-200
                   `}
                 >
+                  {isPossibleMove && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-3 h-3 bg-blue-400 rounded-full opacity-70"></div>
+                    </div>
+                  )}
                   <div className="w-full justify-center flex h-full">
                     <div className="h-full justify-center flex flex-col">
                       {square && (
