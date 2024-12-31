@@ -52,15 +52,19 @@ export const Game: React.FC = () => {
           const newChess = new Chess(chess.fen());
           console.log('Received move:', message.payload.move);
           console.log('Current FEN before move:', newChess.fen());
-          const move = newChess.move(message.payload.move);
-          if (move) {
-            console.log('Move applied successfully:', move);
-            console.log('New FEN after move:', newChess.fen());
-            setChess(newChess);
-            setBoard(newChess.board());
+          if (message.payload.move) {
+            const move = newChess.move(message.payload.move);
+            if (move) {
+              console.log('Move applied successfully:', move);
+              console.log('New FEN after move:', newChess.fen());
+              setChess(newChess);
+              setBoard(newChess.board());
+            } else {
+              console.error('Invalid move received:', message.payload.move);
+              console.log('Current board state:', newChess.fen());
+            }
           } else {
-            console.error('Invalid move received:', message.payload.move);
-            console.log('Current board state:', newChess.fen());
+            console.error('No move data received in payload');
           }
         } catch (error) {
           console.error('Error applying move:', error);
@@ -102,6 +106,17 @@ export const Game: React.FC = () => {
   useEffect(() => {
     console.log('Board updated:', board);
   }, [board]);
+
+  useEffect(() => {
+    console.log('Current game state:', {
+      playerColor,
+      currentTurn: chess.turn(),
+      fen: chess.fen(),
+      isCheck: chess.isCheck(),
+      isCheckmate: chess.isCheckmate(),
+      isDraw: chess.isDraw()
+    });
+  }, [chess, playerColor]);
 
   if (!socket) {
     return (
