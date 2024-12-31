@@ -47,7 +47,8 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
       try {
         const move = {
           from,
-          to: squareRepresentation
+          to: squareRepresentation,
+          promotion: 'q' // Default to queen promotion
         };
 
         const newChess = new Chess(chess.fen());
@@ -58,9 +59,9 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
           setBoard(newChess.board());
           socket.send(JSON.stringify({
             type: MOVE,
-            payload: { move }
+            payload: { move: result }
           }));
-          console.log('Move sent to server:', move);
+          console.log('Move sent to server:', result);
         } else {
           console.error('Invalid move:', move);
         }
