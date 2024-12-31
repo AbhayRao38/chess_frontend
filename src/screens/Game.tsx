@@ -50,16 +50,21 @@ export const Game: React.FC = () => {
       case MOVE:
         try {
           const newChess = new Chess(chess.fen());
+          console.log('Received move:', message.payload.move);
+          console.log('Current FEN before move:', newChess.fen());
           const move = newChess.move(message.payload.move);
           if (move) {
+            console.log('Move applied successfully:', move);
+            console.log('New FEN after move:', newChess.fen());
             setChess(newChess);
             setBoard(newChess.board());
-            console.log('Move applied:', move);
           } else {
             console.error('Invalid move received:', message.payload.move);
+            console.log('Current board state:', newChess.fen());
           }
         } catch (error) {
           console.error('Error applying move:', error);
+          console.log('Full message payload:', message.payload);
         }
         break;
       case GAME_OVER:
