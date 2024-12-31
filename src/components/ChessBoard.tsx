@@ -55,15 +55,27 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
         const result = newChess.move(move);
 
         if (result) {
+          console.log('Move result:', result);
+          console.log('New FEN after move:', newChess.fen());
           setChess(newChess);
           setBoard(newChess.board());
+          const moveToSend = {
+            from: result.from,
+            to: result.to,
+            promotion: result.promotion,
+            color: result.color,
+            flags: result.flags,
+            piece: result.piece,
+            san: result.san
+          };
           socket.send(JSON.stringify({
             type: MOVE,
-            payload: { move: result }
+            payload: moveToSend
           }));
-          console.log('Move sent to server:', result);
+          console.log('Move sent to server:', moveToSend);
         } else {
           console.error('Invalid move:', move);
+          console.log('Current board state:', chess.fen());
         }
       } catch (error) {
         console.error('Error applying move:', error);
@@ -100,8 +112,8 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                   className={`
                     w-16 h-16 
                     ${(i+j)%2 === 0 ? 'bg-green-500' : 'bg-slate-500'}
-                    ${isSelected ? 'border-2 border-yellow-400' : ''}
-                    ${isPossibleMove ? 'border-2 border-blue-400' : ''}
+                    ${isSelected ? 'border-4 border-yellow-400' : ''}
+                    ${isPossibleMove ? 'border-4 border-red-600' : ''}
                     ${isSpectator ? 'cursor-not-allowed' : (!isPlayerTurn ? 'cursor-not-allowed' : 'cursor-pointer')}
                     transition-all duration-200
                   `}

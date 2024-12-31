@@ -24,6 +24,7 @@ export const ActiveGames = () => {
     if (!socket) return;
     
     try {
+      console.log('Fetching games...');
       socket.send(JSON.stringify({ type: FETCH_GAMES }));
     } catch (err) {
       console.error('Error sending fetch games request:', err);
@@ -37,7 +38,9 @@ export const ActiveGames = () => {
     const handleMessage = (event: MessageEvent) => {
       try {
         const message = JSON.parse(event.data);
+        console.log('Received message:', message);
         if (message.type === GAMES_LIST) {
+          console.log('Games list received:', message.payload.games);
           setGames(message.payload.games);
           setLoading(false);
           setError(null);
