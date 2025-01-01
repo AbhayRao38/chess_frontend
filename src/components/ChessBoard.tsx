@@ -15,7 +15,7 @@ interface ChessBoardProps {
     type: PieceSymbol;
     color: Color;
   } | null)[][];
-  socket: WebSocket;
+  socket: WebSocket | null;
   playerColor: "white" | "black";
   isSpectator?: boolean;
 }
@@ -35,7 +35,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   const displayBoard = playerColor === "black" ? [...board].reverse().map(row => [...row].reverse()) : board;
 
   const handleSquareClick = useCallback((squareRepresentation: Square) => {
-    if (isSpectator || !isPlayerTurn) return;
+    if (isSpectator || !isPlayerTurn || !socket) return;
 
     if (!from) {
       const piece = chess.get(squareRepresentation);
@@ -101,7 +101,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                     w-16 h-16 relative
                     ${(i+j)%2 === 0 ? 'bg-green-500' : 'bg-slate-500'}
                     ${isSelected ? 'border-2 border-yellow-400' : ''}
-                    ${isSpectator ? 'cursor-not-allowed' : (!isPlayerTurn ? 'cursor-not-allowed' : 'cursor-pointer')}
+                    ${isSpectator || !socket ? 'cursor-not-allowed' : (!isPlayerTurn ? 'cursor-not-allowed' : 'cursor-pointer')}
                     transition-all duration-200
                   `}
                 >

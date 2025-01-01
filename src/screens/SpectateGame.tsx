@@ -37,7 +37,7 @@ export const SpectateGame: React.FC = () => {
         break;
       case MOVE:
         try {
-          const newChess = new Chess(chess?.fen());
+          const newChess = new Chess(chess.fen());
           const move = newChess.move(message.payload.move);
           if (move) {
             setChess(newChess);
@@ -55,15 +55,17 @@ export const SpectateGame: React.FC = () => {
     }
   }, [chess]);
 
-  useEffect(() => {
-    if (!socket) return;
-
-    const joinSpectate = () => {
-      socket?.send(JSON.stringify({
+  const joinSpectate = useCallback(() => {
+    if (socket && gameId) {
+      socket.send(JSON.stringify({
         type: "join_spectate",
         payload: { gameId }
       }));
-    };
+    }
+  }, [socket, gameId]);
+
+  useEffect(() => {
+    if (!socket) return;
 
     const handleOpen = () => {
       joinSpectate();
@@ -80,6 +82,10 @@ export const SpectateGame: React.FC = () => {
 
     socket.addEventListener('open', handleOpen);
     socket.addEventListener('message', handleMessage);
+
+    if (socket.readyState === WebSocket.OPEN) {
+      joinSpectate();
+    }
 
     return () => {
       socket.removeEventListener('open', handleOpen);
