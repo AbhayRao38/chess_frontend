@@ -11,7 +11,7 @@ export const MOVE = "move";
 export const GAME_OVER = "game_over";
 
 export const Game: React.FC = () => {
-  const socket = useSocket();
+  const { socket, isConnected } = useSocket();
   const navigate = useNavigate();
   const [chess, setChess] = useState(new Chess());
   const [board, setBoard] = useState(chess.board());
@@ -94,28 +94,9 @@ export const Game: React.FC = () => {
   useEffect(() => {
     if (!socket) return;
 
-    socket.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data);
-        handleGameMessage(message);
-      } catch (error) {
-        console.error('Error processing message:', error);
-      }
-    };
-
-    return () => {
-      socket.onmessage = null;
-    };
-  }, [socket, handleGameMessage]);
-
-  useEffect(() => {
-    if (!socket) return;
-
     const handleMessage = (event: MessageEvent) => {
-      console.log('Raw WebSocket message received:', event.data);
       try {
         const message = JSON.parse(event.data);
-        console.log('Parsed WebSocket message:', message);
         handleGameMessage(message);
       } catch (error) {
         console.error('Error processing message:', error);
@@ -144,7 +125,15 @@ export const Game: React.FC = () => {
     });
   }, [chess, playerColor]);
 
-  if (!socket) {
+  const handleInitGame = useCallback(() => {
+    if (socket) {
+      socket.send(JSON.stringify({
+        type: INIT_GAME
+      }));
+    }
+  }, [socket]);
+
+  if (!isConnected) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="text-white text-xl">Connecting to server...</div>
@@ -181,11 +170,7 @@ export const Game: React.FC = () => {
           <div className="lg:col-span-2 bg-slate-900 w-full rounded-lg p-6">
             <div className="flex flex-col gap-4">
               {!started && (
-                <Button onClick={() => {
-                  socket.send(JSON.stringify({
-                    type: INIT_GAME
-                  }));
-                }}>
+                <Button onClick={handleInitGame}>
                   Play
                 </Button>
               )}
