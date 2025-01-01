@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 
 const WS_URL = "wss://chess-backend-dark.onrender.com";
 
 export const useSocket = () => {
   const [socket, setSocket] = useState<WebSocket | null>(null);
-  const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const [isConnected, setIsConnected] = useState(false);
+  const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 3;
 
   const connect = useCallback(() => {
@@ -15,17 +16,19 @@ export const useSocket = () => {
       ws.onopen = () => {
         console.log('WebSocket connected successfully');
         setSocket(ws);
-        setReconnectAttempts(0);
+        setIsConnected(true);
+        reconnectAttempts.current = 0;
       };
 
-      ws.onclose = () => {
-        console.log('WebSocket connection closed');
+      ws.onclose = (event) => {
+        console.log(`WebSocket connection closed. Code: ${event.code}, Reason: ${event.reason}`);
         setSocket(null);
-        if (reconnectAttempts < maxReconnectAttempts) {
-          const delay = 1000 * Math.pow(2, reconnectAttempts);
-          console.log(`Attempting to reconnect in ${delay}ms (Attempt ${reconnectAttempts + 1}/${maxReconnectAttempts})`);
+        setIsConnected(false);
+        if (reconnectAttempts.current < maxReconnectAttempts) {
+          const delay = 1000 * Math.pow(2, reconnectAttempts.current);
+          console.log(`Attempting to reconnect in ${delay}ms (Attempt ${reconnectAttempts.current + 1}/${maxReconnectAttempts})`);
           setTimeout(() => {
-            setReconnectAttempts(prev => prev + 1);
+            reconnectAttempts.current += 1;
             connect();
           }, delay);
         } else {
@@ -35,7 +38,6 @@ export const useSocket = () => {
 
       ws.onerror = (error) => {
         console.error('WebSocket error:', error);
-        ws.close();
       };
 
       return ws;
@@ -43,18 +45,18 @@ export const useSocket = () => {
       console.error('Failed to create WebSocket connection:', error);
       return null;
     }
-  }, [reconnectAttempts]);
+  }, []);
 
   useEffect(() => {
     const ws = connect();
 
     return () => {
       if (ws) {
-        console.log('Closing WebSocket connection');
+        console.log('Closing WebSocket connection due to component unmount');
         ws.close();
       }
     };
   }, [connect]);
 
-  return socket;
+  return { socket, isConnected };
 };
