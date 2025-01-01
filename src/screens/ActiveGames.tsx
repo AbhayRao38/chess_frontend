@@ -21,7 +21,12 @@ export const ActiveGames = () => {
   const [error, setError] = useState<string | null>(null);
 
   const fetchGames = useCallback(() => {
-    if (!socket || !isConnected) {
+    if (!socket) {
+      console.log("Socket not available, cannot fetch games");
+      return;
+    }
+    
+    if (!isConnected) {
       console.log("Socket not connected, cannot fetch games");
       return;
     }
@@ -36,7 +41,12 @@ export const ActiveGames = () => {
   }, [socket, isConnected]);
 
   useEffect(() => {
-    if (!socket || !isConnected) return;
+    if (!socket || !isConnected) {
+      console.log("Socket not ready, skipping effect");
+      return;
+    }
+
+    console.log("Setting up message listener");
 
     const handleMessage = (event: MessageEvent) => {
       try {
@@ -61,6 +71,7 @@ export const ActiveGames = () => {
     const interval = setInterval(fetchGames, 5000);
 
     return () => {
+      console.log("Cleaning up message listener and interval");
       socket.removeEventListener('message', handleMessage);
       clearInterval(interval);
     };
@@ -73,6 +84,10 @@ export const ActiveGames = () => {
     }
     navigate(`/spectate/${gameId}`);
   }, [navigate]);
+
+  useEffect(() => {
+    console.log("Current games state:", games);
+  }, [games]);
 
   if (!isConnected) {
     return (
