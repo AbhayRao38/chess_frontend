@@ -15,32 +15,35 @@ export const GAMES_LIST = "games_list";
 
 export const ActiveGames = () => {
   const navigate = useNavigate();
-  const socket = useSocket();
+  const { socket, isConnected } = useSocket();
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchGames = useCallback(() => {
-    if (!socket) return;
+    if (!socket || !isConnected) {
+      console.log("Socket not connected, cannot fetch games");
+      return;
+    }
     
     try {
-      console.log("Fetching games..."); // Add this line for debugging
+      console.log("Fetching games...");
       socket.send(JSON.stringify({ type: FETCH_GAMES }));
     } catch (err) {
       console.error('Error sending fetch games request:', err);
       setError('Failed to fetch games');
     }
-  }, [socket]);
+  }, [socket, isConnected]);
 
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || !isConnected) return;
 
     const handleMessage = (event: MessageEvent) => {
       try {
         const message = JSON.parse(event.data);
-        console.log("Received message:", message); // Add this line for debugging
+        console.log("Received message:", message);
         if (message.type === GAMES_LIST) {
-          console.log("Received games list:", message.payload.games); // Add this line for debugging
+          console.log("Received games list:", message.payload.games);
           setGames(message.payload.games);
           setLoading(false);
           setError(null);
@@ -61,7 +64,7 @@ export const ActiveGames = () => {
       socket.removeEventListener('message', handleMessage);
       clearInterval(interval);
     };
-  }, [socket, fetchGames]);
+  }, [socket, isConnected, fetchGames]);
 
   const handleWatchGame = useCallback((gameId: string) => (event?: MouseEvent<HTMLButtonElement>) => {
     if (event) {
@@ -71,7 +74,7 @@ export const ActiveGames = () => {
     navigate(`/spectate/${gameId}`);
   }, [navigate]);
 
-  if (!socket) {
+  if (!isConnected) {
     return (
       <div className="min-h-screen bg-slate-950 flex justify-center items-center">
         <div className="text-white text-xl">Connecting to server...</div>
