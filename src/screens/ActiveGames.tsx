@@ -26,13 +26,13 @@ export const ActiveGames = () => {
       return;
     }
     
-    if (!isConnected) {
-      console.log("Socket not connected, cannot fetch games");
+    if (!isConnected || socket.readyState !== WebSocket.OPEN) {
+      console.log("Socket not connected or not in OPEN state, cannot fetch games");
       return;
     }
     
     try {
-      console.log("Fetching games...");
+      console.log("Sending FETCH_GAMES message");
       socket.send(JSON.stringify({ type: FETCH_GAMES }));
     } catch (err) {
       console.error('Error sending fetch games request:', err);
@@ -53,10 +53,12 @@ export const ActiveGames = () => {
         const message = JSON.parse(event.data);
         console.log("Received message:", message);
         if (message.type === GAMES_LIST) {
-          console.log("Received games list:", message.payload.games);
+          console.log("Received GAMES_LIST:", message.payload.games);
           setGames(message.payload.games);
           setLoading(false);
           setError(null);
+        } else {
+          console.log("Received unknown message type:", message.type);
         }
       } catch (err) {
         console.error('Error processing message:', err);
@@ -66,9 +68,13 @@ export const ActiveGames = () => {
     };
 
     socket.addEventListener('message', handleMessage);
+    console.log("Initial fetch of games");
     fetchGames();
 
-    const interval = setInterval(fetchGames, 5000);
+    const interval = setInterval(() => {
+      console.log("Periodic fetch of games");
+      fetchGames();
+    }, 5000);
 
     return () => {
       console.log("Cleaning up message listener and interval");
