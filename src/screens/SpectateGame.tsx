@@ -12,7 +12,7 @@ export const MOVE = "move";
 
 export const SpectateGame: React.FC = () => {
   const { gameId } = useParams<{ gameId: string }>();
-  const socket = useSocket();
+  const { socket, isConnected } = useSocket();
   const navigate = useNavigate();
   const [chess, setChess] = useState(new Chess());
   const [board, setBoard] = useState(chess.board());
@@ -37,7 +37,7 @@ export const SpectateGame: React.FC = () => {
         break;
       case MOVE:
         try {
-          const newChess = new Chess(chess.fen());
+          const newChess = new Chess(chess?.fen());
           const move = newChess.move(message.payload.move);
           if (move) {
             setChess(newChess);
@@ -56,21 +56,20 @@ export const SpectateGame: React.FC = () => {
   }, [chess]);
 
   useEffect(() => {
-    if (!socket || !gameId) return;
+    if (!socket) return;
 
     const joinSpectate = () => {
-      socket.send(JSON.stringify({
+      socket?.send(JSON.stringify({
         type: "join_spectate",
         payload: { gameId }
       }));
     };
 
-    socket.onopen = joinSpectate;
-    if (socket.readyState === WebSocket.OPEN) {
+    const handleOpen = () => {
       joinSpectate();
-    }
+    };
 
-    socket.onmessage = (event) => {
+    const handleMessage = (event: MessageEvent) => {
       try {
         const message = JSON.parse(event.data);
         handleGameMessage(message);
@@ -79,13 +78,16 @@ export const SpectateGame: React.FC = () => {
       }
     };
 
-    return () => {
-      socket.onmessage = null;
-      socket.onopen = null;
-    };
-  }, [socket, gameId, handleGameMessage]);
+    socket.addEventListener('open', handleOpen);
+    socket.addEventListener('message', handleMessage);
 
-  if (!socket) {
+    return () => {
+      socket.removeEventListener('open', handleOpen);
+      socket.removeEventListener('message', handleMessage);
+    };
+  }, [socket, joinSpectate, handleGameMessage]);
+
+  if (!isConnected) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="text-white text-xl">Connecting to server...</div>
