@@ -1,39 +1,29 @@
-import React, { useEffect, useState, useCallback } from "react";
-import { Button } from "../components/Button"
-import { ChessBoard } from "../components/ChessBoard"
-import { useSocket } from "../hooks/useSocket";
-import { Chess } from 'chess.js'
-import { Timer } from "../components/Timer";
-import { useNavigate } from "react-router-dom";
+import React, { useCallback, useEffect, useState } from 'react';
+import { Chess } from 'chess.js';
+import { ChessBoard } from '../components/ChessBoard';
+import { Timer } from '../components/Timer';
+import { useSocket } from '../hooks/useSocket';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Button } from '../components/Button';
 
-export const INIT_GAME = "init_game";
-export const MOVE = "move";
-export const GAME_OVER = "game_over";
+export const INIT_GAME = 'INIT_GAME';
+export const MOVE = 'MOVE';
+export const GAME_UPDATE = 'GAME_UPDATE';
+export const GAME_OVER = 'GAME_OVER';
+export const JOIN_SPECTATE = 'JOIN_SPECTATE';
 
-export const Game: React.FC = () => {
-  const { socket, isConnected } = useSocket();
-  const navigate = useNavigate();
-  const [chess, setChess] = useState(new Chess());
+const Game: React.FC = () => {
+  const [chess, setChess] = useState<Chess>(new Chess());
   const [board, setBoard] = useState(chess.board());
   const [started, setStarted] = useState(false);
-  const [playerColor, setPlayerColor] = useState<"white" | "black">("white");
-  const [whiteTime, setWhiteTime] = useState(0);
-  const [blackTime, setBlackTime] = useState(0);
+  const [playerColor, setPlayerColor] = useState<"white" | "black" | null>(null);
+  const [whiteTime, setWhiteTime] = useState(600);
+  const [blackTime, setBlackTime] = useState(600);
   const [gameOver, setGameOver] = useState<{ winner: string; reason: string } | null>(null);
-
-  useEffect(() => {
-    if (!started) return;
-
-    const interval = setInterval(() => {
-      if (chess.turn() === 'w') {
-        setWhiteTime(prev => prev + 1);
-      } else {
-        setBlackTime(prev => prev + 1);
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [started, chess]);
+  const { socket, isConnected } = useSocket();
+  const { gameId } = useParams<{ gameId: string }>();
+  const navigate = useNavigate();
+  const isSpectator = gameId !== undefined;
 
   const handleGameMessage = useCallback((message: any) => {
     console.log('Received game message:', message);
@@ -43,37 +33,47 @@ export const Game: React.FC = () => {
         setBoard(chess.board());
         setStarted(true);
         setPlayerColor(message.payload.color);
-        setWhiteTime(0);
-        setBlackTime(0);
+        setWhiteTime(600);
+        setBlackTime(600);
         console.log('Game initialized:', message.payload);
         break;
       case MOVE:
         try {
           const newChess = new Chess(chess.fen());
-          console.log('Received move payload:', message.payload);
-          if (message.payload && message.payload.from && message.payload.to) {
-            const move = {
-              from: message.payload.from,
-              to: message.payload.to,
-              promotion: message.payload.promotion
-            };
-            console.log('Attempting to apply move:', move);
-            const result = newChess.move(move);
+          if (message.payload && message.payload.move) {
+            const result = newChess.move(message.payload.move);
             if (result) {
-              console.log('Move applied successfully:', result);
-              console.log('New FEN after move:', newChess.fen());
               setChess(newChess);
               setBoard(newChess.board());
+              console.log('Move applied:', result);
             } else {
-              console.error('Invalid move:', move);
-              console.log('Current board state:', newChess.fen());
+              console.error('Invalid move:', message.payload.move);
             }
           } else {
             console.error('Invalid move payload received:', message.payload);
           }
         } catch (error) {
           console.error('Error applying move:', error);
-          console.log('Full message payload:', message.payload);
+        }
+        break;
+      case GAME_UPDATE:
+        try {
+          const newChess = new Chess(message.payload.fen);
+          setChess(newChess);
+          setBoard(newChess.board());
+          setWhiteTime(message.payload.whiteTime);
+          setBlackTime(message.payload.blackTime);
+          if (message.payload.isCheck) {
+            // Handle check state
+          }
+          if (message.payload.isCheckmate || message.payload.isDraw) {
+            setGameOver({
+              winner: message.payload.turn === 'w' ? 'Black' : 'White',
+              reason: message.payload.isCheckmate ? 'Checkmate' : 'Draw'
+            });
+          }
+        } catch (error) {
+          console.error('Error updating game state:', error);
         }
         break;
       case GAME_OVER:
@@ -82,9 +82,6 @@ export const Game: React.FC = () => {
           reason: message.payload.reason
         });
         console.log('Game over:', message.payload);
-        break;
-      case 'error':
-        console.error('Game error:', message.payload.message);
         break;
       default:
         console.warn('Unknown message type:', message.type);
@@ -95,101 +92,61 @@ export const Game: React.FC = () => {
     if (!socket) return;
 
     const handleMessage = (event: MessageEvent) => {
-      try {
-        const message = JSON.parse(event.data);
-        handleGameMessage(message);
-      } catch (error) {
-        console.error('Error processing message:', error);
-      }
+      const message = JSON.parse(event.data);
+      handleGameMessage(message);
     };
 
     socket.addEventListener('message', handleMessage);
 
+    if (isSpectator && gameId) {
+      socket.send(JSON.stringify({
+        type: JOIN_SPECTATE,
+        payload: { gameId }
+      }));
+    } else if (!isSpectator) {
+      socket.send(JSON.stringify({ type: INIT_GAME }));
+    }
+
     return () => {
       socket.removeEventListener('message', handleMessage);
     };
-  }, [socket, handleGameMessage]);
-
-  useEffect(() => {
-    console.log('Board updated:', board);
-  }, [board]);
-
-  useEffect(() => {
-    console.log('Current game state:', {
-      playerColor,
-      currentTurn: chess.turn(),
-      fen: chess.fen(),
-      isCheck: chess.isCheck(),
-      isCheckmate: chess.isCheckmate(),
-      isDraw: chess.isDraw()
-    });
-  }, [chess, playerColor]);
-
-  const handleInitGame = useCallback(() => {
-    if (socket) {
-      socket.send(JSON.stringify({
-        type: INIT_GAME
-      }));
-    }
-  }, [socket]);
+  }, [socket, handleGameMessage, isSpectator, gameId]);
 
   if (!isConnected) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="text-white text-xl">Connecting to server...</div>
-      </div>
-    );
+    return <div>Connecting to server...</div>;
+  }
+
+  if (!started && !isSpectator) {
+    return <div>Waiting for opponent...</div>;
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex justify-center">
-      <div className="pt-8 max-w-screen-lg w-full px-4">
-        <div className="grid grid-cols-1 lg:grid-cols-6 gap-4 w-full">
-          <div className="lg:col-span-4 w-full flex flex-col items-center">
-            <div className="mb-4">
-              <Timer 
-                seconds={playerColor === "black" ? whiteTime : blackTime} 
-                isActive={chess.turn() === (playerColor === "black" ? "w" : "b")}
-              />
-            </div>
-            <ChessBoard 
-              chess={chess} 
-              setChess={setChess}
-              setBoard={setBoard} 
-              socket={socket} 
-              board={board}
-              playerColor={playerColor}
-            />
-            <div className="mt-4">
-              <Timer 
-                seconds={playerColor === "white" ? whiteTime : blackTime}
-                isActive={chess.turn() === (playerColor === "white" ? "w" : "b")}
-              />
-            </div>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
+      <div className="bg-white rounded-lg shadow-lg p-6">
+        <div className="flex justify-between items-center mb-4">
+          <Timer seconds={blackTime} isActive={chess.turn() === 'b'} />
+          <div className="text-2xl font-bold">
+            {gameOver ? `Game Over - ${gameOver.winner} wins by ${gameOver.reason}` : 'Chess Game'}
           </div>
-          <div className="lg:col-span-2 bg-slate-900 w-full rounded-lg p-6">
-            <div className="flex flex-col gap-4">
-              {!started && (
-                <Button onClick={handleInitGame}>
-                  Play
-                </Button>
-              )}
-              {!started && (
-                <Button onClick={() => navigate('/')}>
-                  Back to Home
-                </Button>
-              )}
-              {gameOver && (
-                <div className="text-white text-center p-4 bg-slate-800 rounded-lg">
-                  <h3 className="text-xl font-bold mb-2">Game Over</h3>
-                  <p className="mb-2">{gameOver.winner} wins!</p>
-                  <p className="text-gray-400">{gameOver.reason}</p>
-                </div>
-              )}
-            </div>
-          </div>
+          <Timer seconds={whiteTime} isActive={chess.turn() === 'w'} />
         </div>
+        <ChessBoard
+          chess={chess}
+          setChess={setChess}
+          board={board}
+          setBoard={setBoard}
+          socket={socket}
+          playerColor={playerColor || "white"}
+          isSpectator={isSpectator}
+        />
+        {gameOver && (
+          <div className="mt-4 text-center">
+            <Button onClick={() => navigate('/')}>Back to Home</Button>
+          </div>
+        )}
       </div>
     </div>
   );
 };
+
+export default Game;

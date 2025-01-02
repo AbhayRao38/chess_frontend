@@ -29,7 +29,6 @@ export const useSocket = () => {
         setSocket(null);
         setIsConnected(false);
 
-        // Only attempt to reconnect if it wasn't a normal closure
         if (event.code !== NORMAL_CLOSE && reconnectAttempts.current < maxReconnectAttempts) {
           setTimeout(() => {
             reconnectAttempts.current += 1;
