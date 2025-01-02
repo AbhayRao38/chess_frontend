@@ -29,6 +29,7 @@ export const useSocket = () => {
         setSocket(null);
         setIsConnected(false);
 
+        // Only attempt to reconnect if it wasn't a normal closure
         if (event.code !== NORMAL_CLOSE && reconnectAttempts.current < maxReconnectAttempts) {
           setTimeout(() => {
             reconnectAttempts.current += 1;
@@ -42,11 +43,13 @@ export const useSocket = () => {
         console.error('WebSocket error:', error);
       };
 
+      // Add ping/pong handlers to keep connection alive
       ws.onmessage = (event) => {
-        if (event.data === 'heartbeat') {
-          ws.send('pong');
-        }
+          if (event.data === 'ping') {
+              ws.send('pong');
+          }
       };
+
 
     } catch (error) {
       console.error('Failed to create WebSocket connection:', error);
