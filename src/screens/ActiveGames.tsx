@@ -1,19 +1,25 @@
-import { useEffect, useState, MouseEvent, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { useSocket } from '../hooks/useSocket';
+import { MiniChessBoard } from '../components/MiniChessBoard';
 
 interface Game {
   id: string;
-  player1: string;
-  player2: string;
+  fen: string;
+  turn: 'w' | 'b';
   status: string;
+  lastMove?: {
+    from: string;
+    to: string;
+  };
 }
 
 export const FETCH_GAMES = "fetch_games";
 export const GAMES_LIST = "games_list";
+export const GAME_STATES_UPDATE = "game_states_update";
 
-export const ActiveGames = () => {
+export const ActiveGames: React.FC = () => {
   const navigate = useNavigate();
   const { socket, isConnected } = useSocket();
   const [games, setGames] = useState<Game[]>([]);
@@ -21,21 +27,14 @@ export const ActiveGames = () => {
   const [error, setError] = useState<string | null>(null);
 
   const fetchGames = useCallback(() => {
-    if (!socket) {
-      console.log("Socket not available, cannot fetch games");
-      return;
-    }
-    
-    if (!isConnected || socket.readyState !== WebSocket.OPEN) {
-      console.log("Socket not connected or not in OPEN state, cannot fetch games");
+    if (!socket || !isConnected) {
+      console.log("Socket not available or not connected, cannot fetch games");
       return;
     }
     
     try {
       console.log("Sending FETCH_GAMES message");
-      const message = JSON.stringify({ type: FETCH_GAMES });
-      console.log("FETCH_GAMES message:", message);
-      socket.send(message);
+      socket.send(JSON.stringify({ type: FETCH_GAMES }));
     } catch (err) {
       console.error('Error sending fetch games request:', err);
       setError('Failed to fetch games');
@@ -54,8 +53,8 @@ export const ActiveGames = () => {
       try {
         const message = JSON.parse(event.data);
         console.log("Received message:", message);
-        if (message.type === GAMES_LIST) {
-          console.log("Received GAMES_LIST:", message.payload.games);
+        if (message.type === GAMES_LIST || message.type === GAME_STATES_UPDATE) {
+          console.log(`Received ${message.type}:`, message.payload.games);
           setGames(message.payload.games);
           setLoading(false);
           setError(null);
@@ -73,29 +72,15 @@ export const ActiveGames = () => {
     console.log("Initial fetch of games");
     fetchGames();
 
-    const interval = setInterval(() => {
-      console.log("Periodic fetch of games");
-      fetchGames();
-    }, 5000);
-
     return () => {
-      console.log("Cleaning up message listener and interval");
+      console.log("Cleaning up message listener");
       socket.removeEventListener('message', handleMessage);
-      clearInterval(interval);
     };
   }, [socket, isConnected, fetchGames]);
 
-  const handleWatchGame = useCallback((gameId: string) => (event?: MouseEvent<HTMLButtonElement>) => {
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
+  const handleWatchGame = useCallback((gameId: string) => () => {
     navigate(`/spectate/${gameId}`);
   }, [navigate]);
-
-  useEffect(() => {
-    console.log("Current games state:", games);
-  }, [games]);
 
   if (!isConnected) {
     return (
@@ -107,7 +92,7 @@ export const ActiveGames = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 flex justify-center">
-      <div className="w-full max-w-4xl px-4 py-8">
+      <div className="w-full max-w-7xl px-4 py-8">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-white">Active Games</h1>
           <Button onClick={() => navigate('/')}>Back to Home</Button>
@@ -137,30 +122,30 @@ export const ActiveGames = () => {
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {games.map((game) => (
               <div 
                 key={game.id}
-                className="bg-slate-800 rounded-lg p-6 hover:bg-slate-700 transition-all duration-200 transform hover:-translate-y-1"
+                className="bg-slate-800 rounded-lg p-4 hover:bg-slate-700 transition-all duration-200 transform hover:-translate-y-1"
               >
-                <h3 className="text-xl font-semibold text-white mb-4">Game {game.id}</h3>
-                <div className="text-gray-300 mb-4">
-                  <p>Player 1: {game.player1}</p>
-                  <p>Player 2: {game.player2}</p>
-                  <p className="mt-2">
-                    <span className={`
-                      inline-block px-2 py-1 rounded
-                      ${game.status === 'In Progress' ? 'bg-green-600' :
-                        game.status === 'Check' ? 'bg-yellow-600' :
-                        'bg-red-600'}
-                    `}>
-                      {game.status}
-                    </span>
-                  </p>
+                <h3 className="text-lg font-semibold text-white mb-2">Game {game.id}</h3>
+                <MiniChessBoard fen={game.fen} lastMove={game.lastMove} />
+                <div className="text-gray-300 mt-2 flex justify-between items-center">
+                  <span className={`
+                    inline-block px-2 py-1 rounded text-sm
+                    ${game.status === 'In Progress' ? 'bg-green-600' :
+                      game.status === 'Check' ? 'bg-yellow-600' :
+                      'bg-red-600'}
+                  `}>
+                    {game.status}
+                  </span>
+                  <span className="text-sm">
+                    Turn: {game.turn === 'w' ? 'White' : 'Black'}
+                  </span>
                 </div>
                 <Button 
                   onClick={handleWatchGame(game.id)}
-                  className="w-full"
+                  className="w-full mt-2"
                 >
                   Watch Game
                 </Button>
