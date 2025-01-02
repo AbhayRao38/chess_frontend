@@ -33,7 +33,9 @@ export const ActiveGames = () => {
     
     try {
       console.log("Sending FETCH_GAMES message");
-      socket.send(JSON.stringify({ type: FETCH_GAMES }));
+      const message = JSON.stringify({ type: FETCH_GAMES });
+      console.log("FETCH_GAMES message:", message);
+      socket.send(message);
     } catch (err) {
       console.error('Error sending fetch games request:', err);
       setError('Failed to fetch games');
