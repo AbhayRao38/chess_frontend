@@ -77,6 +77,8 @@ export const ActiveGames: React.FC = () => {
           setLoading(false);
           setError(null);
           setLastUpdate(new Date());
+        } else if (message.type === 'ping') {
+          console.log("Received ping from server");
         } else {
           console.warn("Received unknown message type:", message.type);
         }

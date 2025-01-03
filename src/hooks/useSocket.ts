@@ -3,12 +3,12 @@ import { useEffect, useState, useCallback, useRef } from "react";
 const WS_URL = "wss://chess-backend-dark.onrender.com";
 const NORMAL_CLOSE = 1000;
 const RECONNECT_INTERVAL = 2000;
+const MAX_RECONNECT_ATTEMPTS = 5;
 
 export const useSocket = () => {
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const reconnectAttempts = useRef(0);
-  const maxReconnectAttempts = 5;
   const socketRef = useRef<WebSocket | null>(null);
   const mountedRef = useRef(true);
 
@@ -34,10 +34,10 @@ export const useSocket = () => {
         setSocket(null);
         setIsConnected(false);
 
-        if (event.code !== NORMAL_CLOSE && reconnectAttempts.current < maxReconnectAttempts) {
+        if (event.code !== NORMAL_CLOSE && reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS) {
           setTimeout(() => {
             reconnectAttempts.current += 1;
-            console.log(`Attempting to reconnect (${reconnectAttempts.current}/${maxReconnectAttempts})`);
+            console.log(`Attempting to reconnect (${reconnectAttempts.current}/${MAX_RECONNECT_ATTEMPTS})`);
             connect();
           }, RECONNECT_INTERVAL);
         }
@@ -70,8 +70,15 @@ export const useSocket = () => {
     mountedRef.current = true;
     connect();
 
+    const pingInterval = setInterval(() => {
+      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+        socketRef.current.send(JSON.stringify({ type: 'ping' }));
+      }
+    }, 30000); // Send a ping every 30 seconds
+
     return () => {
       mountedRef.current = false;
+      clearInterval(pingInterval);
       if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
         console.log('Closing WebSocket connection due to component unmount');
         socketRef.current.close(NORMAL_CLOSE);
