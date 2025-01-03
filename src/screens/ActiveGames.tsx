@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, ErrorInfo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { useSocket } from '../hooks/useSocket';
@@ -19,6 +19,29 @@ interface Game {
   };
 }
 
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean}> {
+  constructor(props: {children: React.ReactNode}) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(_: Error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("Uncaught error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <h1>Something went wrong.</h1>;
+    }
+
+    return this.props.children;
+  }
+}
+
 export const ActiveGames: React.FC = () => {
   const navigate = useNavigate();
   const { socket, isConnected } = useSocket();
@@ -29,6 +52,7 @@ export const ActiveGames: React.FC = () => {
 
   const fetchGames = useCallback(() => {
     if (!socket || !isConnected) {
+      console.log("Cannot fetch games: Socket not connected");
       setError("Not connected to server");
       setLoading(false);
       return;
@@ -65,9 +89,9 @@ export const ActiveGames: React.FC = () => {
 
     const handleMessage = (event: MessageEvent) => {
       try {
-        console.log("Raw message received:", event.data);
+        console.log("Raw message received in ActiveGames:", event.data);
         const message = JSON.parse(event.data);
-        console.log("Parsed message:", message);
+        console.log("Parsed message in ActiveGames:", message);
 
         if (message.type === GAMES_LIST || message.type === GAME_STATES_UPDATE) {
           console.log(`Received ${message.type}:`, message.payload.games);
@@ -109,6 +133,7 @@ export const ActiveGames: React.FC = () => {
     navigate('/game');
   }, [navigate]);
 
+  console.log("Raw games data:", JSON.stringify(games, null, 2));
   console.log("Rendering ActiveGames. State:", { games, loading, error, lastUpdate });
 
   if (!isConnected) {
@@ -120,68 +145,81 @@ export const ActiveGames: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex justify-center">
-      <div className="w-full max-w-7xl px-4 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-white">Active Games</h1>
-            {lastUpdate && (
-              <p className="text-gray-400 text-sm mt-1">
-                Last updated: {lastUpdate.toLocaleTimeString()}
-              </p>
-            )}
+    <ErrorBoundary>
+      <div className="min-h-screen bg-slate-950 flex justify-center">
+        <div className="w-full max-w-7xl px-4 py-8">
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-white">Active Games</h1>
+              {lastUpdate && (
+                <p className="text-gray-400 text-sm mt-1">
+                  Last updated: {lastUpdate.toLocaleTimeString()}
+                </p>
+              )}
+            </div>
+            <div className="flex gap-4">
+              <Button onClick={handleStartNewGame}>Start New Game</Button>
+              <Button onClick={() => navigate('/')}>Back to Home</Button>
+            </div>
           </div>
-          <div className="flex gap-4">
-            <Button onClick={handleStartNewGame}>Start New Game</Button>
-            <Button onClick={() => navigate('/')}>Back to Home</Button>
-          </div>
-        </div>
 
-        {loading ? (
-          <div className="text-center text-gray-400 py-12">
-            <p className="text-xl">Loading games...</p>
-          </div>
-        ) : games.length === 0 ? (
-          <div className="text-center text-gray-400 py-12">
-            <p className="text-xl">No active games found</p>
-            <p className="mt-2">Start a new game or check back later</p>
-            <Button onClick={handleStartNewGame} className="mt-4">
-              Start New Game
-            </Button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {games.map((game) => (
-              <div 
-                key={game.id}
-                className="bg-slate-800 rounded-lg p-4 hover:bg-slate-700 transition-all duration-200 transform hover:-translate-y-1"
-              >
-                <h3 className="text-lg font-semibold text-white mb-2">Game {game.id}</h3>
-                <MiniChessBoard fen={game.fen} lastMove={game.lastMove} />
-                <div className="text-gray-300 mt-2 flex justify-between items-center">
-                  <span className={`
-                    inline-block px-2 py-1 rounded text-sm
-                    ${game.status === 'In Progress' ? 'bg-green-600' :
-                      game.status === 'Check' ? 'bg-yellow-600' :
-                      'bg-red-600'}
-                  `}>
-                    {game.status}
-                  </span>
-                  <span className="text-sm">
-                    Turn: {game.turn === 'w' ? 'White' : 'Black'}
-                  </span>
-                </div>
-                <Button 
-                  onClick={handleWatchGame(game.id)}
-                  className="w-full mt-2"
+          {loading ? (
+            <div className="text-center text-gray-400 py-12">
+              <p className="text-xl">Loading games...</p>
+            </div>
+          ) : error ? (
+            <div className="text-center text-red-400 py-12">
+              <p className="text-xl">{error}</p>
+              <Button onClick={() => {
+                setError(null);
+                setLoading(true);
+                fetchGames();
+              }} className="mt-4">
+                Retry
+              </Button>
+            </div>
+          ) : games.length === 0 ? (
+            <div className="text-center text-gray-400 py-12">
+              <p className="text-xl">No active games found</p>
+              <p className="mt-2">Start a new game or check back later</p>
+              <Button onClick={handleStartNewGame} className="mt-4">
+                Start New Game
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {games.map((game) => (
+                <div 
+                  key={game.id}
+                  className="bg-slate-800 rounded-lg p-4 hover:bg-slate-700 transition-all duration-200 transform hover:-translate-y-1"
                 >
-                  Watch Game
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
+                  <h3 className="text-lg font-semibold text-white mb-2">Game {game.id}</h3>
+                  <MiniChessBoard fen={game.fen} lastMove={game.lastMove} />
+                  <div className="text-gray-300 mt-2 flex justify-between items-center">
+                    <span className={`
+                      inline-block px-2 py-1 rounded text-sm
+                      ${game.status === 'In Progress' ? 'bg-green-600' :
+                        game.status === 'Check' ? 'bg-yellow-600' :
+                        'bg-red-600'}
+                    `}>
+                      {game.status}
+                    </span>
+                    <span className="text-sm">
+                      Turn: {game.turn === 'w' ? 'White' : 'Black'}
+                    </span>
+                  </div>
+                  <Button 
+                    onClick={handleWatchGame(game.id)}
+                    className="w-full mt-2"
+                  >
+                    Watch Game
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </ErrorBoundary>
   );
 };
