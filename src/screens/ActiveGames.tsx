@@ -4,6 +4,10 @@ import { Button } from '../components/Button';
 import { useSocket } from '../hooks/useSocket';
 import { MiniChessBoard } from '../components/MiniChessBoard';
 
+export const FETCH_GAMES = "fetch_games";
+export const GAMES_LIST = "games_list";
+export const GAME_STATES_UPDATE = "game_states_update";
+
 interface Game {
   id: string;
   fen: string;
@@ -14,10 +18,6 @@ interface Game {
     to: string;
   };
 }
-
-export const FETCH_GAMES = "fetch_games";
-export const GAMES_LIST = "games_list";
-export const GAME_STATES_UPDATE = "game_states_update";
 
 export const ActiveGames: React.FC = () => {
   const navigate = useNavigate();
@@ -46,9 +46,7 @@ export const ActiveGames: React.FC = () => {
   }, [socket, isConnected]);
 
   useEffect(() => {
-    if (!socket || !isConnected) {
-      return;
-    }
+    if (!socket || !isConnected) return;
 
     const handleMessage = (event: MessageEvent) => {
       try {
@@ -89,83 +87,13 @@ export const ActiveGames: React.FC = () => {
     navigate('/game');
   }, [navigate]);
 
-  const renderContent = () => {
-    if (!isConnected) {
-      return (
-        <div className="text-center text-white text-xl py-12">
-          Connecting to server...
-        </div>
-      );
-    }
-
-    if (error) {
-      return (
-        <div className="text-center text-red-400 py-12">
-          <p className="text-xl">{error}</p>
-          <Button onClick={() => {
-            setError(null);
-            setLoading(true);
-            fetchGames();
-          }} className="mt-4">
-            Retry
-          </Button>
-        </div>
-      );
-    }
-
-    if (loading) {
-      return (
-        <div className="text-center text-gray-400 py-12">
-          <p className="text-xl">Loading games...</p>
-        </div>
-      );
-    }
-
-    if (games.length === 0) {
-      return (
-        <div className="text-center text-gray-400 py-12">
-          <p className="text-xl">No active games at the moment</p>
-          <p className="mt-2">Start a new game or check back later</p>
-          <Button onClick={handleStartNewGame} className="mt-4">
-            Start New Game
-          </Button>
-        </div>
-      );
-    }
-
+  if (!isConnected) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {games.map((game) => (
-          <div 
-            key={game.id}
-            className="bg-slate-800 rounded-lg p-4 hover:bg-slate-700 transition-all duration-200 transform hover:-translate-y-1"
-          >
-            <h3 className="text-lg font-semibold text-white mb-2">Game {game.id}</h3>
-            <MiniChessBoard fen={game.fen} lastMove={game.lastMove} />
-            <div className="text-gray-300 mt-2 flex justify-between items-center">
-              <span className={`
-                inline-block px-2 py-1 rounded text-sm
-                ${game.status === 'In Progress' ? 'bg-green-600' :
-                  game.status === 'Check' ? 'bg-yellow-600' :
-                  'bg-red-600'}
-              `}>
-                {game.status}
-              </span>
-              <span className="text-sm">
-                Turn: {game.turn === 'w' ? 'White' : 'Black'}
-              </span>
-            </div>
-            <Button 
-              onClick={handleWatchGame(game.id)}
-              className="w-full mt-2"
-            >
-              Watch Game
-            </Button>
-          </div>
-        ))}
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="text-white text-xl">Connecting to server...</div>
       </div>
     );
-  };
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 flex justify-center">
@@ -185,7 +113,61 @@ export const ActiveGames: React.FC = () => {
           </div>
         </div>
 
-        {renderContent()}
+        {error ? (
+          <div className="text-center text-red-400 py-12">
+            <p className="text-xl">{error}</p>
+            <Button onClick={() => {
+              setError(null);
+              setLoading(true);
+              fetchGames();
+            }} className="mt-4">
+              Retry
+            </Button>
+          </div>
+        ) : loading ? (
+          <div className="text-center text-gray-400 py-12">
+            <p className="text-xl">Loading games...</p>
+          </div>
+        ) : games.length === 0 ? (
+          <div className="text-center text-gray-400 py-12">
+            <p className="text-xl">No active games at the moment</p>
+            <p className="mt-2">Start a new game or check back later</p>
+            <Button onClick={handleStartNewGame} className="mt-4">
+              Start New Game
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {games.map((game) => (
+              <div 
+                key={game.id}
+                className="bg-slate-800 rounded-lg p-4 hover:bg-slate-700 transition-all duration-200 transform hover:-translate-y-1"
+              >
+                <h3 className="text-lg font-semibold text-white mb-2">Game {game.id}</h3>
+                <MiniChessBoard fen={game.fen} lastMove={game.lastMove} />
+                <div className="text-gray-300 mt-2 flex justify-between items-center">
+                  <span className={`
+                    inline-block px-2 py-1 rounded text-sm
+                    ${game.status === 'In Progress' ? 'bg-green-600' :
+                      game.status === 'Check' ? 'bg-yellow-600' :
+                      'bg-red-600'}
+                  `}>
+                    {game.status}
+                  </span>
+                  <span className="text-sm">
+                    Turn: {game.turn === 'w' ? 'White' : 'Black'}
+                  </span>
+                </div>
+                <Button 
+                  onClick={handleWatchGame(game.id)}
+                  className="w-full mt-2"
+                >
+                  Watch Game
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
