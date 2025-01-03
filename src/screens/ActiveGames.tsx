@@ -46,7 +46,21 @@ export const ActiveGames: React.FC = () => {
   }, [socket, isConnected]);
 
   useEffect(() => {
-    if (!socket || !isConnected) return;
+    const loadingTimeout = setTimeout(() => {
+      if (loading) {
+        console.log("Loading timeout reached. No games received.");
+        setLoading(false);
+      }
+    }, 10000); // 10 seconds timeout
+
+    return () => clearTimeout(loadingTimeout);
+  }, [loading]);
+
+  useEffect(() => {
+    if (!socket || !isConnected) {
+      console.log("Socket not connected, skipping effect");
+      return;
+    }
 
     const handleMessage = (event: MessageEvent) => {
       try {
@@ -59,6 +73,8 @@ export const ActiveGames: React.FC = () => {
           setLoading(false);
           setError(null);
           setLastUpdate(new Date());
+        } else {
+          console.log("Received unknown message type:", message.type);
         }
       } catch (err) {
         console.error('Error processing message:', err);
@@ -67,13 +83,17 @@ export const ActiveGames: React.FC = () => {
       }
     };
 
+    console.log("Adding message event listener");
     socket.addEventListener('message', handleMessage);
+    console.log("Calling fetchGames");
     fetchGames();
 
     // Fetch games periodically
+    console.log("Setting up interval for fetchGames");
     const interval = setInterval(fetchGames, 5000);
 
     return () => {
+      console.log("Cleaning up effect");
       socket.removeEventListener('message', handleMessage);
       clearInterval(interval);
     };
@@ -115,24 +135,13 @@ export const ActiveGames: React.FC = () => {
           </div>
         </div>
 
-        {error ? (
-          <div className="text-center text-red-400 py-12">
-            <p className="text-xl">{error}</p>
-            <Button onClick={() => {
-              setError(null);
-              setLoading(true);
-              fetchGames();
-            }} className="mt-4">
-              Retry
-            </Button>
-          </div>
-        ) : loading ? (
+        {loading ? (
           <div className="text-center text-gray-400 py-12">
             <p className="text-xl">Loading games...</p>
           </div>
         ) : games.length === 0 ? (
           <div className="text-center text-gray-400 py-12">
-            <p className="text-xl">No active games at the moment</p>
+            <p className="text-xl">No active games found</p>
             <p className="mt-2">Start a new game or check back later</p>
             <Button onClick={handleStartNewGame} className="mt-4">
               Start New Game
