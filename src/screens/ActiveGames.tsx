@@ -35,8 +35,9 @@ export const ActiveGames: React.FC = () => {
     }
     
     try {
-      console.log("Sending FETCH_GAMES message");
-      socket.send(JSON.stringify({ type: FETCH_GAMES }));
+      const message = JSON.stringify({ type: FETCH_GAMES });
+      console.log("Sending FETCH_GAMES message:", message);
+      socket.send(message);
       setLastUpdate(new Date());
     } catch (err) {
       console.error('Error sending fetch games request:', err);
@@ -64,8 +65,9 @@ export const ActiveGames: React.FC = () => {
 
     const handleMessage = (event: MessageEvent) => {
       try {
+        console.log("Raw message received:", event.data);
         const message = JSON.parse(event.data);
-        console.log("Received message:", message);
+        console.log("Parsed message:", message);
 
         if (message.type === GAMES_LIST || message.type === GAME_STATES_UPDATE) {
           console.log(`Received ${message.type}:`, message.payload.games);
