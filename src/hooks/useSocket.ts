@@ -51,8 +51,11 @@ export const useSocket = () => {
       ws.onmessage = (event) => {
         if (!mountedRef.current) return;
         console.log('WebSocket message received:', event.data);
-        if (event.data === 'ping') {
-          ws.send('pong');
+        try {
+          const parsedData = JSON.parse(event.data);
+          console.log('Parsed WebSocket message:', parsedData);
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
         }
       };
     } catch (error) {
