@@ -10,26 +10,30 @@ export const useSocket = () => {
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
   const socketRef = useRef<WebSocket | null>(null);
+  const mountedRef = useRef(true);
 
   const connect = useCallback(() => {
+    if (!mountedRef.current) return;
+
     try {
       console.log('Attempting to connect to WebSocket...');
       const ws = new WebSocket(WS_URL);
       socketRef.current = ws;
-      setSocket(ws);
 
       ws.onopen = () => {
+        if (!mountedRef.current) return;
         console.log('WebSocket connected successfully');
+        setSocket(ws);
         setIsConnected(true);
         reconnectAttempts.current = 0;
       };
 
       ws.onclose = (event) => {
+        if (!mountedRef.current) return;
         console.log(`WebSocket connection closed. Code: ${event.code}, Reason: ${event.reason}`);
         setSocket(null);
         setIsConnected(false);
 
-        // Only attempt to reconnect if it wasn't a normal closure
         if (event.code !== NORMAL_CLOSE && reconnectAttempts.current < maxReconnectAttempts) {
           setTimeout(() => {
             reconnectAttempts.current += 1;
@@ -40,27 +44,30 @@ export const useSocket = () => {
       };
 
       ws.onerror = (error) => {
+        if (!mountedRef.current) return;
         console.error('WebSocket error:', error);
       };
 
-      // Add ping/pong handlers to keep connection alive
       ws.onmessage = (event) => {
-          if (event.data === 'ping') {
-              ws.send('pong');
-          }
+        if (!mountedRef.current) return;
+        if (event.data === 'ping') {
+          ws.send('pong');
+        }
       };
-
-
     } catch (error) {
+      if (!mountedRef.current) return;
       console.error('Failed to create WebSocket connection:', error);
       setSocket(null);
+      setIsConnected(false);
     }
   }, []);
 
   useEffect(() => {
+    mountedRef.current = true;
     connect();
 
     return () => {
+      mountedRef.current = false;
       if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
         console.log('Closing WebSocket connection due to component unmount');
         socketRef.current.close(NORMAL_CLOSE);

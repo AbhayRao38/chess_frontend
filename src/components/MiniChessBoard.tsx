@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Chess } from 'chess.js';
 
 interface MiniChessBoardProps {
@@ -7,29 +7,36 @@ interface MiniChessBoardProps {
 }
 
 export const MiniChessBoard: React.FC<MiniChessBoardProps> = ({ fen, lastMove }) => {
-  const chess = new Chess(fen);
-  const board = chess.board();
+  const chess = useMemo(() => new Chess(fen), [fen]);
+  const board = useMemo(() => chess.board(), [chess]);
 
   return (
-    <div className="w-full aspect-square">
+    <div className="w-full aspect-square border border-slate-700 rounded-lg overflow-hidden">
       <div className="grid grid-cols-8 grid-rows-8 h-full w-full">
         {board.flatMap((row, rowIndex) =>
           row.map((piece, colIndex) => {
             const square = `${String.fromCharCode(97 + colIndex)}${8 - rowIndex}`;
             const isLastMoveFrom = lastMove && lastMove.from === square;
             const isLastMoveTo = lastMove && lastMove.to === square;
+
             return (
               <div
                 key={`${rowIndex}-${colIndex}`}
                 className={`
-                  ${(rowIndex + colIndex) % 2 === 0 ? 'bg-gray-300' : 'bg-gray-600'}
-                  ${isLastMoveFrom ? 'bg-yellow-200' : ''}
-                  ${isLastMoveTo ? 'bg-yellow-400' : ''}
+                  ${(rowIndex + colIndex) % 2 === 0 ? 'bg-slate-600' : 'bg-slate-800'}
+                  ${isLastMoveFrom ? 'bg-yellow-700' : ''}
+                  ${isLastMoveTo ? 'bg-yellow-600' : ''}
                   flex items-center justify-center
+                  transition-colors duration-200
                 `}
               >
                 {piece && (
-                  <div className="text-2xl md:text-3xl lg:text-4xl">
+                  <div 
+                    className={`
+                      text-2xl md:text-3xl lg:text-4xl
+                      ${piece.color === 'w' ? 'text-gray-200' : 'text-gray-900'}
+                    `}
+                  >
                     {getPieceSymbol(piece.type, piece.color)}
                   </div>
                 )}
