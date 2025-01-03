@@ -87,6 +87,8 @@ export const ActiveGames: React.FC = () => {
     navigate('/game');
   }, [navigate]);
 
+  console.log("Rendering ActiveGames. State:", { games, loading, error, lastUpdate });
+
   if (!isConnected) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">

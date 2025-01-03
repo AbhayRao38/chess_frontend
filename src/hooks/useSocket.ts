@@ -50,6 +50,7 @@ export const useSocket = () => {
 
       ws.onmessage = (event) => {
         if (!mountedRef.current) return;
+        console.log('WebSocket message received:', event.data);
         if (event.data === 'ping') {
           ws.send('pong');
         }
