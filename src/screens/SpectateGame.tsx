@@ -5,6 +5,7 @@ import { ChessBoard } from "../components/ChessBoard";
 import { useSocket } from "../hooks/useSocket";
 import { Button } from "../components/Button";
 import { Timer } from "../components/Timer";
+import GameOverModal from "../components/GameOverModal";
 
 export const GAME_STATE = "game_state";
 export const GAME_UPDATE = "game_update";
@@ -45,14 +46,10 @@ export const SpectateGame: React.FC = () => {
       case MOVE:
         try {
           const newChess = new Chess(chess.fen());
-          const move = message.payload.move ? {
+          const move = {
             from: message.payload.move.from,
             to: message.payload.move.to,
             promotion: message.payload.move.promotion
-          } : {
-            from: message.payload.from,
-            to: message.payload.to,
-            promotion: message.payload.promotion
           };
           console.log('Applying move:', move);
           const result = newChess.move(move);
@@ -148,28 +145,23 @@ export const SpectateGame: React.FC = () => {
             <div className="mt-4">
               <Timer seconds={blackTime} isActive={chess.turn() === 'b' && !gameOver} />
             </div>
-            {gameOver && (
-              <div className="text-white text-center p-4 bg-slate-800 rounded-lg mt-4">
-                <h3 className="text-xl font-bold mb-2">Game Over</h3>
-                <p className="mb-2">{gameOver.winner} wins!</p>
-                <p className="text-gray-400">{gameOver.reason}</p>
-                <Button onClick={() => navigate('/spectate')} className="mt-4">
-                  Watch Another Game
-                </Button>
-              </div>
-            )}
           </div>
           <div className="lg:col-span-2 bg-slate-900 w-full rounded-lg p-6">
             <div className="flex flex-col gap-4">
-              <Button onClick={() => navigate('/')}>
-                Back to Home
-              </Button>
-              <Button onClick={() => navigate('/spectate')}>
-                Watch Another Game
-              </Button>
+              <Button onClick={() => navigate('/')}>Back to Home</Button>
+              <Button onClick={() => navigate('/spectate')}>Watch Another Game</Button>
             </div>
           </div>
         </div>
+        <GameOverModal
+          isOpen={!!gameOver}
+          winner={gameOver?.winner || null}
+          reason={gameOver?.reason || ''}
+          playerColor=""
+          onClose={() => setGameOver(null)}
+          onPlayAgain={() => navigate('/spectate')}
+          onGoHome={() => navigate('/')}
+        />
       </div>
     </div>
   );

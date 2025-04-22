@@ -34,7 +34,6 @@ export const ActiveGames: React.FC = () => {
       setLoading(false);
       return;
     }
-    
     try {
       const message = JSON.stringify({ type: FETCH_GAMES });
       console.log("Sending FETCH_GAMES message:", message);
@@ -54,8 +53,7 @@ export const ActiveGames: React.FC = () => {
         setLoading(false);
         setError("No games received from server");
       }
-    }, 10000); // 10 seconds timeout
-
+    }, 15000);
     return () => clearTimeout(loadingTimeout);
   }, [loading]);
 
@@ -93,11 +91,7 @@ export const ActiveGames: React.FC = () => {
     socket.addEventListener('message', handleMessage);
     console.log("Calling fetchGames");
     fetchGames();
-
-    // Fetch games periodically
-    console.log("Setting up interval for fetchGames");
     const interval = setInterval(fetchGames, 5000);
-
     return () => {
       console.log("Cleaning up effect");
       socket.removeEventListener('message', handleMessage);
@@ -141,7 +135,6 @@ export const ActiveGames: React.FC = () => {
             <Button onClick={() => navigate('/')}>Back to Home</Button>
           </div>
         </div>
-
         {loading ? (
           <div className="text-center text-gray-400 py-12">
             <p className="text-xl">Loading games...</p>

@@ -5,6 +5,7 @@ import { useSocket } from "../hooks/useSocket";
 import { Chess } from 'chess.js';
 import { Timer } from "../components/Timer";
 import { useNavigate } from "react-router-dom";
+import GameOverModal from "../components/GameOverModal";
 
 export const INIT_GAME = "init_game";
 export const MOVE = "move";
@@ -18,9 +19,22 @@ export const Game: React.FC = () => {
   const [board, setBoard] = useState(chess.board());
   const [started, setStarted] = useState(false);
   const [playerColor, setPlayerColor] = useState<"white" | "black">("white");
-  const [whiteTime, setWhiteTime] = useState(600); // 10 minutes
-  const [blackTime, setBlackTime] = useState(600); // 10 minutes
+  const [whiteTime, setWhiteTime] = useState(600);
+  const [blackTime, setBlackTime] = useState(600);
   const [gameOver, setGameOver] = useState<{ winner: string; reason: string } | null>(null);
+
+  useEffect(() => {
+    if (!gameOver && started) {
+      const timer = setInterval(() => {
+        if (chess.turn() === 'w') {
+          setWhiteTime((prev) => Math.max(0, prev - 1));
+        } else {
+          setBlackTime((prev) => Math.max(0, prev - 1));
+        }
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [gameOver, started, chess]);
 
   useEffect(() => {
     if (!socket) return;
@@ -36,37 +50,28 @@ export const Game: React.FC = () => {
             setBoard(newChess.board());
             setStarted(true);
             setPlayerColor(message.payload.color);
-            setWhiteTime(600);
-            setBlackTime(600);
-            setGameOver(null); // Reset game over state
+            setWhiteTime(message.payload.whiteTime || 600);
+            setBlackTime(message.payload.blackTime || 600);
+            setGameOver(null);
             console.log('Game initialized:', message.payload);
             break;
           case MOVE:
             try {
               const newChess = new Chess(chess.fen());
               console.log('Received move payload:', message.payload);
-              if (message.payload) {
-                // Handle both new and old message formats
-                const move = message.payload.move ? {
-                  from: message.payload.move.from,
-                  to: message.payload.move.to,
-                  promotion: message.payload.move.promotion
-                } : {
-                  from: message.payload.from,
-                  to: message.payload.to,
-                  promotion: message.payload.promotion
-                };
-                console.log('Applying move:', move);
-                const result = newChess.move(move);
-                if (result) {
-                  setChess(newChess);
-                  setBoard(newChess.board());
-                  console.log('Move applied successfully:', result);
-                } else {
-                  console.error('Invalid move:', move, 'FEN:', newChess.fen());
-                }
+              const move = {
+                from: message.payload.move.from,
+                to: message.payload.move.to,
+                promotion: message.payload.move.promotion
+              };
+              console.log('Applying move:', move);
+              const result = newChess.move(move);
+              if (result) {
+                setChess(newChess);
+                setBoard(newChess.board());
+                console.log('Move applied successfully:', result);
               } else {
-                console.error('Invalid move payload received:', message.payload);
+                console.error('Invalid move:', move, 'FEN:', newChess.fen());
               }
             } catch (error) {
               console.error('Error applying move:', error);
@@ -108,17 +113,12 @@ export const Game: React.FC = () => {
     };
 
     socket.addEventListener('message', handleMessage);
-
-    return () => {
-      socket.removeEventListener('message', handleMessage);
-    };
+    return () => socket.removeEventListener('message', handleMessage);
   }, [socket, chess]);
 
   const handleInitGame = useCallback(() => {
     if (socket) {
-      socket.send(JSON.stringify({
-        type: INIT_GAME
-      }));
+      socket.send(JSON.stringify({ type: INIT_GAME }));
     }
   }, [socket]);
 
@@ -155,32 +155,27 @@ export const Game: React.FC = () => {
                 isActive={chess.turn() === 'b' && !gameOver}
               />
             </div>
-            {gameOver && (
-              <div className="text-white text-center p-4 bg-slate-800 rounded-lg mt-4">
-                <h3 className="text-xl font-bold mb-2">Game Over</h3>
-                <p className="mb-2">{gameOver.winner} wins!</p>
-                <p className="text-gray-400">{gameOver.reason}</p>
-                <Button onClick={handleInitGame} className="mt-4">
-                  Play Again
-                </Button>
-              </div>
-            )}
           </div>
           <div className="lg:col-span-2 bg-slate-900 w-full rounded-lg p-6">
             <div className="flex flex-col gap-4">
               {!started && (
-                <Button onClick={handleInitGame}>
-                  Play
-                </Button>
+                <Button onClick={handleInitGame}>Play</Button>
               )}
               {!started && (
-                <Button onClick={() => navigate('/')}>
-                  Back to Home
-                </Button>
+                <Button onClick={() => navigate('/')}>Back to Home</Button>
               )}
             </div>
           </div>
         </div>
+        <GameOverModal
+          isOpen={!!gameOver}
+          winner={gameOver?.winner || null}
+          reason={gameOver?.reason || ''}
+          playerColor={playerColor}
+          onClose={() => setGameOver(null)}
+          onPlayAgain={handleInitGame}
+          onGoHome={() => navigate('/')}
+        />
       </div>
     </div>
   );
