@@ -36,7 +36,10 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   const displayBoard = playerColor === "black" ? [...board].reverse().map(row => [...row].reverse()) : board;
 
   const handlePromotion = useCallback((promotion: PieceSymbol) => {
-    if (!showPromotion || !socket) return;
+    if (!showPromotion || !socket) {
+      console.warn('[ChessBoard] Promotion aborted: no promotion data or socket');
+      return;
+    }
 
     try {
       const move = {
@@ -44,6 +47,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
         to: showPromotion.to,
         promotion
       };
+      console.log('[ChessBoard] Attempting promotion move:', move);
 
       const newChess = new Chess(chess.fen());
       const result = newChess.move(move);
@@ -51,16 +55,17 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
       if (result) {
         setChess(newChess);
         setBoard(newChess.board());
-        socket.send(JSON.stringify({
+        const moveMessage = {
           type: MOVE,
-          payload: { move: result }
-        }));
-        console.log('Move with promotion sent to server:', result);
+          payload: { move: { from: move.from, to: move.to, promotion: move.promotion } }
+        };
+        socket.send(JSON.stringify(moveMessage));
+        console.log('[ChessBoard] Sent promotion move to server:', moveMessage);
       } else {
-        console.error('Invalid move:', move);
+        console.error('[ChessBoard] Invalid promotion move:', move);
       }
     } catch (error) {
-      console.error('Error applying move:', error);
+      console.error('[ChessBoard] Error applying promotion move:', error);
     }
 
     setShowPromotion(null);
@@ -69,13 +74,19 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   }, [showPromotion, chess, setChess, setBoard, socket]);
 
   const handleSquareClick = useCallback((squareRepresentation: Square) => {
-    if (isSpectator || !isPlayerTurn || !socket) return;
+    if (isSpectator || !isPlayerTurn || !socket) {
+      console.log('[ChessBoard] Click ignored:', { isSpectator, isPlayerTurn, socket });
+      return;
+    }
 
     if (!from) {
       const piece = chess.get(squareRepresentation);
       if (piece && piece.color === (playerColor === "white" ? "w" : "b")) {
         setFrom(squareRepresentation);
         setSelectedSquare(squareRepresentation);
+        console.log('[ChessBoard] Selected square:', squareRepresentation);
+      } else {
+        console.log('[ChessBoard] Invalid selection:', squareRepresentation);
       }
     } else {
       const moves = chess.moves({ square: from, verbose: true });
@@ -84,6 +95,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
       );
 
       if (isPromotion) {
+        console.log('[ChessBoard] Promotion detected for move:', { from, to: squareRepresentation });
         setShowPromotion({ from, to: squareRepresentation });
       } else {
         try {
@@ -91,6 +103,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
             from,
             to: squareRepresentation
           };
+          console.log('[ChessBoard] Attempting move:', move);
 
           const newChess = new Chess(chess.fen());
           const result = newChess.move(move);
@@ -98,16 +111,17 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
           if (result) {
             setChess(newChess);
             setBoard(newChess.board());
-            socket.send(JSON.stringify({
+            const moveMessage = {
               type: MOVE,
-              payload: { move: result }
-            }));
-            console.log('Move sent to server:', result);
+              payload: { move: { from: move.from, to: move.to } }
+            };
+            socket.send(JSON.stringify(moveMessage));
+            console.log('[ChessBoard] Sent move to server:', moveMessage);
           } else {
-            console.error('Invalid move:', move);
+            console.error('[ChessBoard] Invalid move:', move);
           }
         } catch (error) {
-          console.error('Error applying move:', error);
+          console.error('[ChessBoard] Error applying move:', error);
         }
 
         setFrom(null);

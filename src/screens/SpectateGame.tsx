@@ -21,9 +21,10 @@ export const SpectateGame: React.FC = () => {
   const [whiteTime, setWhiteTime] = useState(600);
   const [blackTime, setBlackTime] = useState(600);
   const [gameOver, setGameOver] = useState<{ winner: string; reason: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleGameMessage = useCallback((message: any) => {
-    console.log('Received game message:', message);
+    console.log('[SpectateGame] Received message:', message);
     switch (message.type) {
       case GAME_STATE:
       case GAME_UPDATE:
@@ -31,36 +32,38 @@ export const SpectateGame: React.FC = () => {
           const newChess = new Chess(message.payload.fen);
           setChess(newChess);
           setBoard(newChess.board());
-          setWhiteTime(message.payload.whiteTime);
-          setBlackTime(message.payload.blackTime);
-          console.log('Game state updated:', { 
-            whiteTime: message.payload.whiteTime, 
-            blackTime: message.payload.blackTime, 
+          setWhiteTime(message.payload.whiteTime || 600);
+          setBlackTime(message.payload.blackTime || 600);
+          setError(null);
+          console.log('[SpectateGame] Updated state:', {
+            whiteTime: message.payload.whiteTime,
+            blackTime: message.payload.blackTime,
             turn: newChess.turn(),
-            fen: message.payload.fen 
+            fen: message.payload.fen
           });
         } catch (error) {
-          console.error('Error updating game state:', error);
+          console.error('[SpectateGame] Error updating state:', error);
+          setError('Failed to update game state');
         }
         break;
       case MOVE:
         try {
           const newChess = new Chess(chess.fen());
           const move = message.payload.move;
+          console.log('[SpectateGame] Processing move:', move);
           if (!move || !move.from || !move.to) {
             throw new Error('Invalid move payload');
           }
-          console.log('Applying move:', move);
           const result = newChess.move(move);
           if (result) {
             setChess(newChess);
             setBoard(newChess.board());
-            console.log('Move applied:', result);
+            console.log('[SpectateGame] Applied move:', result);
           } else {
-            console.error('Invalid move received:', move, 'FEN:', newChess.fen());
+            console.error('[SpectateGame] Invalid move:', move);
           }
         } catch (error) {
-          console.error('Error applying move:', error);
+          console.error('[SpectateGame] Error applying move:', error);
         }
         break;
       case GAME_OVER:
@@ -68,10 +71,14 @@ export const SpectateGame: React.FC = () => {
           winner: message.payload.winner,
           reason: message.payload.reason
         });
-        console.log('Game over:', message.payload);
+        console.log('[SpectateGame] Game over:', message.payload);
+        break;
+      case 'error':
+        console.error('[SpectateGame] Server error:', message.payload.message);
+        setError(message.payload.message);
         break;
       default:
-        console.warn('Unknown message type:', message.type);
+        console.warn('[SpectateGame] Unknown message type:', message.type);
     }
   }, [chess]);
 
@@ -81,7 +88,7 @@ export const SpectateGame: React.FC = () => {
         type: "join_spectate",
         payload: { gameId }
       };
-      console.log('Sending JOIN_SPECTATE:', joinMessage);
+      console.log('[SpectateGame] Sending JOIN_SPECTATE:', joinMessage);
       socket.send(JSON.stringify(joinMessage));
     }
   }, [socket, gameId]);
@@ -90,16 +97,17 @@ export const SpectateGame: React.FC = () => {
     if (!socket) return;
 
     const handleOpen = () => {
+      console.log('[SpectateGame] WebSocket opened, joining game');
       joinSpectate();
     };
 
     const handleMessage = (event: MessageEvent) => {
       try {
-        console.log('Raw message received in SpectateGame:', event.data);
         const message = JSON.parse(event.data);
         handleGameMessage(message);
       } catch (error) {
-        console.error('Error processing message:', error);
+        console.error('[SpectateGame] Error processing message:', error);
+        setError('Failed to process server message');
       }
     };
 
@@ -120,6 +128,15 @@ export const SpectateGame: React.FC = () => {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="text-white text-xl">Connecting to server...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="text-red-400 text-xl">{error}</div>
+        <Button onClick={() => navigate('/spectate')} className="mt-4">Try Another Game</Button>
       </div>
     );
   }

@@ -22,6 +22,24 @@ export const Game: React.FC = () => {
   const [whiteTime, setWhiteTime] = useState(600);
   const [blackTime, setBlackTime] = useState(600);
   const [gameOver, setGameOver] = useState<{ winner: string; reason: string } | null>(null);
+  const [lastUpdateTime, setLastUpdateTime] = useState(Date.now());
+
+  // Fallback timer logic
+  useEffect(() => {
+    if (!started || gameOver) return;
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const elapsed = (now - lastUpdateTime) / 1000;
+      setLastUpdateTime(now);
+      if (chess.turn() === 'w') {
+        setWhiteTime(prev => Math.max(0, prev - elapsed));
+      } else {
+        setBlackTime(prev => Math.max(0, prev - elapsed));
+      }
+      console.log('[Game] Fallback timer update:', { whiteTime, blackTime, turn: chess.turn() });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [started, chess, gameOver, lastUpdateTime, whiteTime, blackTime]);
 
   useEffect(() => {
     if (!socket) return;
@@ -29,7 +47,7 @@ export const Game: React.FC = () => {
     const handleMessage = (event: MessageEvent) => {
       try {
         const message = JSON.parse(event.data);
-        console.log('Received game message:', message);
+        console.log('[Game] Received message:', message);
         switch (message.type) {
           case INIT_GAME:
             const newChess = new Chess();
@@ -39,28 +57,28 @@ export const Game: React.FC = () => {
             setPlayerColor(message.payload.color);
             setWhiteTime(message.payload.whiteTime || 600);
             setBlackTime(message.payload.blackTime || 600);
+            setLastUpdateTime(Date.now());
             setGameOver(null);
-            console.log('Game initialized:', message.payload);
+            console.log('[Game] Initialized game:', message.payload);
             break;
           case MOVE:
             try {
               const newChess = new Chess(chess.fen());
-              console.log('Received move payload:', message.payload);
               const move = message.payload.move;
+              console.log('[Game] Processing move:', move);
               if (!move || !move.from || !move.to) {
                 throw new Error('Invalid move payload');
               }
-              console.log('Applying move:', move);
               const result = newChess.move(move);
               if (result) {
                 setChess(newChess);
                 setBoard(newChess.board());
-                console.log('Move applied successfully:', result);
+                console.log('[Game] Applied move:', result);
               } else {
-                console.error('Invalid move:', move, 'FEN:', newChess.fen());
+                console.error('[Game] Invalid move:', move);
               }
             } catch (error) {
-              console.error('Error applying move:', error);
+              console.error('[Game] Error applying move:', error);
             }
             break;
           case GAME_UPDATE:
@@ -70,14 +88,15 @@ export const Game: React.FC = () => {
               setBoard(newChess.board());
               setWhiteTime(message.payload.whiteTime);
               setBlackTime(message.payload.blackTime);
-              console.log('Game state updated:', { 
-                whiteTime: message.payload.whiteTime, 
-                blackTime: message.payload.blackTime, 
+              setLastUpdateTime(Date.now());
+              console.log('[Game] Updated state:', {
+                whiteTime: message.payload.whiteTime,
+                blackTime: message.payload.blackTime,
                 turn: newChess.turn(),
-                fen: message.payload.fen 
+                fen: message.payload.fen
               });
             } catch (error) {
-              console.error('Error updating game state:', error);
+              console.error('[Game] Error updating state:', error);
             }
             break;
           case GAME_OVER:
@@ -85,16 +104,16 @@ export const Game: React.FC = () => {
               winner: message.payload.winner,
               reason: message.payload.reason
             });
-            console.log('Game over:', message.payload);
+            console.log('[Game] Game over:', message.payload);
             break;
           case 'error':
-            console.error('Game error:', message.payload.message);
+            console.error('[Game] Server error:', message.payload.message);
             break;
           default:
-            console.warn('Unknown message type:', message.type);
+            console.warn('[Game] Unknown message type:', message.type);
         }
       } catch (error) {
-        console.error('Error processing message:', error);
+        console.error('[Game] Error processing message:', error);
       }
     };
 
@@ -104,6 +123,7 @@ export const Game: React.FC = () => {
 
   const handleInitGame = useCallback(() => {
     if (socket) {
+      console.log('[Game] Sending INIT_GAME');
       socket.send(JSON.stringify({ type: INIT_GAME }));
     }
   }, [socket]);

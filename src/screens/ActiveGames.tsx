@@ -29,18 +29,18 @@ export const ActiveGames: React.FC = () => {
 
   const fetchGames = useCallback(() => {
     if (!socket || !isConnected) {
-      console.error("Cannot fetch games: Socket not connected");
-      setError("Not connected to server");
+      console.error('[ActiveGames] Cannot fetch games: socket not connected');
+      setError('Not connected to server');
       setLoading(false);
       return;
     }
     try {
-      const message = JSON.stringify({ type: FETCH_GAMES });
-      console.log("Sending FETCH_GAMES message:", message);
-      socket.send(message);
+      const message = { type: FETCH_GAMES };
+      console.log('[ActiveGames] Sending FETCH_GAMES:', message);
+      socket.send(JSON.stringify(message));
       setLastUpdate(new Date());
     } catch (err) {
-      console.error('Error sending FETCH_GAMES:', err);
+      console.error('[ActiveGames] Error sending FETCH_GAMES:', err);
       setError('Failed to fetch games');
       setLoading(false);
     }
@@ -49,9 +49,9 @@ export const ActiveGames: React.FC = () => {
   useEffect(() => {
     const loadingTimeout = setTimeout(() => {
       if (loading) {
-        console.warn("Loading timeout reached. No games received.");
+        console.warn('[ActiveGames] Loading timeout reached');
         setLoading(false);
-        setError("No games received from server");
+        setError('No games received from server');
       }
     }, 15000);
     return () => clearTimeout(loadingTimeout);
@@ -59,56 +59,59 @@ export const ActiveGames: React.FC = () => {
 
   useEffect(() => {
     if (!socket || !isConnected) {
-      console.warn("Socket not connected, skipping effect");
+      console.warn('[ActiveGames] Socket not connected, skipping effect');
       return;
     }
 
     const handleMessage = (event: MessageEvent) => {
       try {
-        console.log("Raw message received in ActiveGames:", event.data);
         const message = JSON.parse(event.data);
-        console.log("Parsed message in ActiveGames:", message);
+        console.log('[ActiveGames] Received message:', message);
 
         if (message.type === GAMES_LIST || message.type === GAME_STATES_UPDATE) {
-          console.log(`Received ${message.type}:`, message.payload.games);
+          console.log('[ActiveGames] Updating games:', message.payload.games);
           setGames(message.payload.games || []);
           setLoading(false);
           setError(null);
           setLastUpdate(new Date());
         } else if (message.type === 'ping') {
-          console.log("Received ping from server");
+          console.log('[ActiveGames] Received ping');
+        } else if (message.type === 'error') {
+          console.error('[ActiveGames] Server error:', message.payload.message);
+          setError(message.payload.message);
+          setLoading(false);
         } else {
-          console.warn("Received unknown message type:", message.type);
+          console.warn('[ActiveGames] Unknown message type:', message.type);
         }
       } catch (err) {
-        console.error('Error processing message:', err);
+        console.error('[ActiveGames] Error processing message:', err);
         setError('Failed to process server response');
         setLoading(false);
       }
     };
 
-    console.log("Adding message event listener");
+    console.log('[ActiveGames] Adding message listener');
     socket.addEventListener('message', handleMessage);
-    console.log("Calling fetchGames");
     fetchGames();
-    const interval = setInterval(fetchGames, 10000);
+    const interval = setInterval(fetchGames, 15000);
     return () => {
-      console.log("Cleaning up effect");
+      console.log('[ActiveGames] Cleaning up listener and interval');
       socket.removeEventListener('message', handleMessage);
       clearInterval(interval);
     };
   }, [socket, isConnected, fetchGames]);
 
   const handleWatchGame = useCallback((gameId: string) => () => {
+    console.log('[ActiveGames] Navigating to spectate game:', gameId);
     navigate(`/spectate/${gameId}`);
   }, [navigate]);
 
   const handleStartNewGame = useCallback(() => {
+    console.log('[ActiveGames] Starting new game');
     navigate('/game');
   }, [navigate]);
 
-  console.log("Raw games data:", JSON.stringify(games, null, 2));
-  console.log("Rendering ActiveGames. State:", { games, loading, error, lastUpdate });
+  console.log('[ActiveGames] Rendering state:', { games, loading, error, lastUpdate });
 
   if (!isConnected) {
     return (
