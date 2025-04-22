@@ -32,7 +32,12 @@ export const SpectateGame: React.FC = () => {
           setBoard(newChess.board());
           setWhiteTime(message.payload.whiteTime);
           setBlackTime(message.payload.blackTime);
-          console.log('Game state updated:', { whiteTime: message.payload.whiteTime, blackTime: message.payload.blackTime, turn: newChess.turn() });
+          console.log('Game state updated:', { 
+            whiteTime: message.payload.whiteTime, 
+            blackTime: message.payload.blackTime, 
+            turn: newChess.turn(),
+            fen: message.payload.fen 
+          });
         } catch (error) {
           console.error('Error updating game state:', error);
         }
@@ -40,11 +45,16 @@ export const SpectateGame: React.FC = () => {
       case MOVE:
         try {
           const newChess = new Chess(chess.fen());
-          const move = {
+          const move = message.payload.move ? {
             from: message.payload.move.from,
             to: message.payload.move.to,
             promotion: message.payload.move.promotion
+          } : {
+            from: message.payload.from,
+            to: message.payload.to,
+            promotion: message.payload.promotion
           };
+          console.log('Applying move:', move);
           const result = newChess.move(move);
           if (result) {
             setChess(newChess);
@@ -71,10 +81,12 @@ export const SpectateGame: React.FC = () => {
 
   const joinSpectate = useCallback(() => {
     if (socket && gameId) {
-      socket.send(JSON.stringify({
+      const joinMessage = {
         type: "join_spectate",
         payload: { gameId }
-      }));
+      };
+      console.log('Sending JOIN_SPECTATE:', joinMessage);
+      socket.send(JSON.stringify(joinMessage));
     }
   }, [socket, gameId]);
 
@@ -87,6 +99,7 @@ export const SpectateGame: React.FC = () => {
 
     const handleMessage = (event: MessageEvent) => {
       try {
+        console.log('Raw message received in SpectateGame:', event.data);
         const message = JSON.parse(event.data);
         handleGameMessage(message);
       } catch (error) {

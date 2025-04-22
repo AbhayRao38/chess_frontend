@@ -45,12 +45,18 @@ export const Game: React.FC = () => {
             try {
               const newChess = new Chess(chess.fen());
               console.log('Received move payload:', message.payload);
-              if (message.payload && message.payload.move) {
-                const move = {
+              if (message.payload) {
+                // Handle both new and old message formats
+                const move = message.payload.move ? {
                   from: message.payload.move.from,
                   to: message.payload.move.to,
                   promotion: message.payload.move.promotion
+                } : {
+                  from: message.payload.from,
+                  to: message.payload.to,
+                  promotion: message.payload.promotion
                 };
+                console.log('Applying move:', move);
                 const result = newChess.move(move);
                 if (result) {
                   setChess(newChess);
@@ -73,7 +79,12 @@ export const Game: React.FC = () => {
               setBoard(newChess.board());
               setWhiteTime(message.payload.whiteTime);
               setBlackTime(message.payload.blackTime);
-              console.log('Game state updated:', { whiteTime: message.payload.whiteTime, blackTime: message.payload.blackTime, turn: newChess.turn() });
+              console.log('Game state updated:', { 
+                whiteTime: message.payload.whiteTime, 
+                blackTime: message.payload.blackTime, 
+                turn: newChess.turn(),
+                fen: message.payload.fen 
+              });
             } catch (error) {
               console.error('Error updating game state:', error);
             }

@@ -41,7 +41,7 @@ export const ActiveGames: React.FC = () => {
       socket.send(message);
       setLastUpdate(new Date());
     } catch (err) {
-      console.error('Error sending fetch games request:', err);
+      console.error('Error sending FETCH_GAMES:', err);
       setError('Failed to fetch games');
       setLoading(false);
     }
