@@ -1,3 +1,4 @@
+//MiniChessBoard.tsx
 import React, { useMemo } from 'react';
 import { Chess } from 'chess.js';
 

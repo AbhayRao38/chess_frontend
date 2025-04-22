@@ -31,8 +31,42 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
 }) => {
   const [from, setFrom] = useState<Square | null>(null);
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
+  const [showPromotion, setShowPromotion] = useState<{ from: Square; to: Square } | null>(null);
   const isPlayerTurn = chess.turn() === (playerColor === "white" ? "w" : "b");
   const displayBoard = playerColor === "black" ? [...board].reverse().map(row => [...row].reverse()) : board;
+
+  const handlePromotion = useCallback((promotion: PieceSymbol) => {
+    if (!showPromotion || !socket) return;
+
+    try {
+      const move = {
+        from: showPromotion.from,
+        to: showPromotion.to,
+        promotion
+      };
+
+      const newChess = new Chess(chess.fen());
+      const result = newChess.move(move);
+
+      if (result) {
+        setChess(newChess);
+        setBoard(newChess.board());
+        socket.send(JSON.stringify({
+          type: MOVE,
+          payload: { move: result }
+        }));
+        console.log('Move with promotion sent to server:', result);
+      } else {
+        console.error('Invalid move:', move);
+      }
+    } catch (error) {
+      console.error('Error applying move:', error);
+    }
+
+    setShowPromotion(null);
+    setFrom(null);
+    setSelectedSquare(null);
+  }, [showPromotion, chess, setChess, setBoard, socket]);
 
   const handleSquareClick = useCallback((squareRepresentation: Square) => {
     if (isSpectator || !isPlayerTurn || !socket) return;
@@ -44,33 +78,41 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
         setSelectedSquare(squareRepresentation);
       }
     } else {
-      try {
-        const move = {
-          from,
-          to: squareRepresentation,
-          promotion: 'q' // Default to queen promotion
-        };
+      const moves = chess.moves({ square: from, verbose: true });
+      const isPromotion = moves.some(move => 
+        move.to === squareRepresentation && move.flags.includes('p')
+      );
 
-        const newChess = new Chess(chess.fen());
-        const result = newChess.move(move);
+      if (isPromotion) {
+        setShowPromotion({ from, to: squareRepresentation });
+      } else {
+        try {
+          const move = {
+            from,
+            to: squareRepresentation
+          };
 
-        if (result) {
-          setChess(newChess);
-          setBoard(newChess.board());
-          socket.send(JSON.stringify({
-            type: MOVE,
-            payload: { move: result }
-          }));
-          console.log('Move sent to server:', result);
-        } else {
-          console.error('Invalid move:', move);
+          const newChess = new Chess(chess.fen());
+          const result = newChess.move(move);
+
+          if (result) {
+            setChess(newChess);
+            setBoard(newChess.board());
+            socket.send(JSON.stringify({
+              type: MOVE,
+              payload: { move: result }
+            }));
+            console.log('Move sent to server:', result);
+          } else {
+            console.error('Invalid move:', move);
+          }
+        } catch (error) {
+          console.error('Error applying move:', error);
         }
-      } catch (error) {
-        console.error('Error applying move:', error);
+
+        setFrom(null);
+        setSelectedSquare(null);
       }
-      
-      setFrom(null);
-      setSelectedSquare(null);
     }
   }, [from, chess, isPlayerTurn, isSpectator, playerColor, setBoard, setChess, socket]);
 
@@ -134,6 +176,28 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
           transition-colors duration-300
         `}>
           {isPlayerTurn ? "Your turn" : "Opponent's turn"}
+        </div>
+      )}
+      {showPromotion && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-slate-800 p-6 rounded-lg flex flex-col gap-4">
+            <h3 className="text-white text-lg font-bold">Promote Pawn</h3>
+            <div className="flex gap-4">
+              {(['q', 'r', 'n', 'b'] as PieceSymbol[]).map(piece => (
+                <button
+                  key={piece}
+                  onClick={() => handlePromotion(piece)}
+                  className="w-16 h-16 bg-slate-700 rounded hover:bg-slate-600 transition-colors"
+                >
+                  <img
+                    src={getPieceImagePath({ color: playerColor === "white" ? "w" : "b", type: piece })}
+                    alt={`${playerColor} ${piece}`}
+                    className="w-10 h-10 mx-auto"
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>

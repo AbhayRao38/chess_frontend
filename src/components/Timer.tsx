@@ -1,3 +1,4 @@
+//Timer.tsx
 import React from 'react';
 
 interface TimerProps {
