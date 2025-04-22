@@ -46,11 +46,10 @@ export const SpectateGame: React.FC = () => {
       case MOVE:
         try {
           const newChess = new Chess(chess.fen());
-          const move = {
-            from: message.payload.move.from,
-            to: message.payload.move.to,
-            promotion: message.payload.move.promotion
-          };
+          const move = message.payload.move;
+          if (!move || !move.from || !move.to) {
+            throw new Error('Invalid move payload');
+          }
           console.log('Applying move:', move);
           const result = newChess.move(move);
           if (result) {

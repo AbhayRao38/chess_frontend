@@ -91,7 +91,7 @@ export const ActiveGames: React.FC = () => {
     socket.addEventListener('message', handleMessage);
     console.log("Calling fetchGames");
     fetchGames();
-    const interval = setInterval(fetchGames, 5000);
+    const interval = setInterval(fetchGames, 10000);
     return () => {
       console.log("Cleaning up effect");
       socket.removeEventListener('message', handleMessage);

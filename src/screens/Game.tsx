@@ -24,19 +24,6 @@ export const Game: React.FC = () => {
   const [gameOver, setGameOver] = useState<{ winner: string; reason: string } | null>(null);
 
   useEffect(() => {
-    if (!gameOver && started) {
-      const timer = setInterval(() => {
-        if (chess.turn() === 'w') {
-          setWhiteTime((prev) => Math.max(0, prev - 1));
-        } else {
-          setBlackTime((prev) => Math.max(0, prev - 1));
-        }
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [gameOver, started, chess]);
-
-  useEffect(() => {
     if (!socket) return;
 
     const handleMessage = (event: MessageEvent) => {
@@ -59,11 +46,10 @@ export const Game: React.FC = () => {
             try {
               const newChess = new Chess(chess.fen());
               console.log('Received move payload:', message.payload);
-              const move = {
-                from: message.payload.move.from,
-                to: message.payload.move.to,
-                promotion: message.payload.move.promotion
-              };
+              const move = message.payload.move;
+              if (!move || !move.from || !move.to) {
+                throw new Error('Invalid move payload');
+              }
               console.log('Applying move:', move);
               const result = newChess.move(move);
               if (result) {
@@ -137,8 +123,8 @@ export const Game: React.FC = () => {
           <div className="lg:col-span-4 w-full flex flex-col items-center">
             <div className="mb-4">
               <Timer 
-                seconds={whiteTime} 
-                isActive={chess.turn() === 'w' && !gameOver}
+                seconds={playerColor === 'white' ? whiteTime : blackTime}
+                isActive={chess.turn() === (playerColor === 'white' ? 'w' : 'b') && !gameOver}
               />
             </div>
             <ChessBoard 
@@ -151,8 +137,8 @@ export const Game: React.FC = () => {
             />
             <div className="mt-4">
               <Timer 
-                seconds={blackTime}
-                isActive={chess.turn() === 'b' && !gameOver}
+                seconds={playerColor === 'white' ? blackTime : whiteTime}
+                isActive={chess.turn() === (playerColor === 'white' ? 'b' : 'w') && !gameOver}
               />
             </div>
           </div>
