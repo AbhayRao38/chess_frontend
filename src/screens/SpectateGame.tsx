@@ -32,7 +32,7 @@ export const SpectateGame: React.FC = () => {
           setBoard(newChess.board());
           setWhiteTime(message.payload.whiteTime);
           setBlackTime(message.payload.blackTime);
-          console.log('Game state updated:', message.payload);
+          console.log('Game state updated:', { whiteTime: message.payload.whiteTime, blackTime: message.payload.blackTime, turn: newChess.turn() });
         } catch (error) {
           console.error('Error updating game state:', error);
         }
@@ -40,13 +40,18 @@ export const SpectateGame: React.FC = () => {
       case MOVE:
         try {
           const newChess = new Chess(chess.fen());
-          const move = newChess.move(message.payload.move);
-          if (move) {
+          const move = {
+            from: message.payload.move.from,
+            to: message.payload.move.to,
+            promotion: message.payload.move.promotion
+          };
+          const result = newChess.move(move);
+          if (result) {
             setChess(newChess);
             setBoard(newChess.board());
-            console.log('Move applied:', move);
+            console.log('Move applied:', result);
           } else {
-            console.error('Invalid move received:', message.payload.move);
+            console.error('Invalid move received:', move, 'FEN:', newChess.fen());
           }
         } catch (error) {
           console.error('Error applying move:', error);

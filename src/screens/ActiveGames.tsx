@@ -52,7 +52,7 @@ export const ActiveGames: React.FC = () => {
       if (loading) {
         console.warn("Loading timeout reached. No games received.");
         setLoading(false);
-        setError("Timeout: No response from server");
+        setError("No games received from server");
       }
     }, 10000); // 10 seconds timeout
 

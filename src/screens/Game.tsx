@@ -57,7 +57,7 @@ export const Game: React.FC = () => {
                   setBoard(newChess.board());
                   console.log('Move applied successfully:', result);
                 } else {
-                  console.error('Invalid move:', move);
+                  console.error('Invalid move:', move, 'FEN:', newChess.fen());
                 }
               } else {
                 console.error('Invalid move payload received:', message.payload);
@@ -73,7 +73,7 @@ export const Game: React.FC = () => {
               setBoard(newChess.board());
               setWhiteTime(message.payload.whiteTime);
               setBlackTime(message.payload.blackTime);
-              console.log('Game state updated:', message.payload);
+              console.log('Game state updated:', { whiteTime: message.payload.whiteTime, blackTime: message.payload.blackTime, turn: newChess.turn() });
             } catch (error) {
               console.error('Error updating game state:', error);
             }
