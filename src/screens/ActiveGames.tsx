@@ -26,23 +26,22 @@ export const ActiveGames: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
-  const maxRetries = 3;
 
   const fetchGames = useCallback(() => {
     if (!socket || !isConnected) {
-      console.error('[ActiveGames] Cannot fetch games: socket not connected');
-      setError('Not connected to server');
+      console.error("Cannot fetch games: Socket not connected");
+      setError("Not connected to server");
       setLoading(false);
       return;
     }
+    
     try {
-      const message = { type: FETCH_GAMES };
-      console.log('[ActiveGames] Sending FETCH_GAMES:', message);
-      socket.send(JSON.stringify(message));
+      const message = JSON.stringify({ type: FETCH_GAMES });
+      console.log("Sending FETCH_GAMES message:", message);
+      socket.send(message);
       setLastUpdate(new Date());
     } catch (err) {
-      console.error('[ActiveGames] Error sending FETCH_GAMES:', err);
+      console.error('Error sending fetch games request:', err);
       setError('Failed to fetch games');
       setLoading(false);
     }
@@ -50,75 +49,72 @@ export const ActiveGames: React.FC = () => {
 
   useEffect(() => {
     const loadingTimeout = setTimeout(() => {
-      if (loading && retryCount < maxRetries) {
-        console.warn('[ActiveGames] Loading timeout reached, retrying:', retryCount + 1);
-        setRetryCount(prev => prev + 1);
-        fetchGames();
-      } else if (loading) {
-        console.error('[ActiveGames] Max retries reached');
+      if (loading) {
+        console.warn("Loading timeout reached. No games received.");
         setLoading(false);
-        setError('No games received from server');
+        setError("Timeout: No response from server");
       }
-    }, 15000);
+    }, 10000); // 10 seconds timeout
+
     return () => clearTimeout(loadingTimeout);
-  }, [loading, retryCount, fetchGames]);
+  }, [loading]);
 
   useEffect(() => {
     if (!socket || !isConnected) {
-      console.warn('[ActiveGames] Socket not connected, skipping effect');
+      console.warn("Socket not connected, skipping effect");
       return;
     }
 
     const handleMessage = (event: MessageEvent) => {
       try {
+        console.log("Raw message received in ActiveGames:", event.data);
         const message = JSON.parse(event.data);
-        console.log('[ActiveGames] Received message:', message);
+        console.log("Parsed message in ActiveGames:", message);
 
         if (message.type === GAMES_LIST || message.type === GAME_STATES_UPDATE) {
-          console.log('[ActiveGames] Updating games:', message.payload.games);
+          console.log(`Received ${message.type}:`, message.payload.games);
           setGames(message.payload.games || []);
           setLoading(false);
           setError(null);
-          setRetryCount(0);
           setLastUpdate(new Date());
         } else if (message.type === 'ping') {
-          console.log('[ActiveGames] Received ping');
-        } else if (message.type === 'error') {
-          console.error('[ActiveGames] Server error:', message.payload.message);
-          setError(message.payload.message);
-          setLoading(false);
+          console.log("Received ping from server");
         } else {
-          console.warn('[ActiveGames] Unknown message type:', message.type);
+          console.warn("Received unknown message type:", message.type);
         }
       } catch (err) {
-        console.error('[ActiveGames] Error processing message:', err);
+        console.error('Error processing message:', err);
         setError('Failed to process server response');
         setLoading(false);
       }
     };
 
-    console.log('[ActiveGames] Adding message listener');
+    console.log("Adding message event listener");
     socket.addEventListener('message', handleMessage);
+    console.log("Calling fetchGames");
     fetchGames();
-    const interval = setInterval(fetchGames, 30000);
+
+    // Fetch games periodically
+    console.log("Setting up interval for fetchGames");
+    const interval = setInterval(fetchGames, 5000);
+
     return () => {
-      console.log('[ActiveGames] Cleaning up listener and interval');
+      console.log("Cleaning up effect");
       socket.removeEventListener('message', handleMessage);
       clearInterval(interval);
     };
   }, [socket, isConnected, fetchGames]);
 
   const handleWatchGame = useCallback((gameId: string) => () => {
-    console.log('[ActiveGames] Navigating to spectate game:', gameId);
     navigate(`/spectate/${gameId}`);
   }, [navigate]);
 
   const handleStartNewGame = useCallback(() => {
-    console.log('[ActiveGames] Starting new game');
     navigate('/game');
   }, [navigate]);
 
-  console.log('[ActiveGames] Rendering state:', { games, loading, error, lastUpdate });
+  console.log("Raw games data:", JSON.stringify(games, null, 2));
+  console.log("Rendering ActiveGames. State:", { games, loading, error, lastUpdate });
 
   if (!isConnected) {
     return (
@@ -145,6 +141,7 @@ export const ActiveGames: React.FC = () => {
             <Button onClick={() => navigate('/')}>Back to Home</Button>
           </div>
         </div>
+
         {loading ? (
           <div className="text-center text-gray-400 py-12">
             <p className="text-xl">Loading games...</p>
@@ -155,7 +152,6 @@ export const ActiveGames: React.FC = () => {
             <Button onClick={() => {
               setError(null);
               setLoading(true);
-              setRetryCount(0);
               fetchGames();
             }} className="mt-4">
               Retry

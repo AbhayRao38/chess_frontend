@@ -1,67 +1,90 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+
+const WS_URL = "wss://chess-backend-dark.onrender.com";
+const NORMAL_CLOSE = 1000;
+const RECONNECT_INTERVAL = 2000;
+const MAX_RECONNECT_ATTEMPTS = 5;
 
 export const useSocket = () => {
+  const [socket, setSocket] = useState<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const socketRef = useRef<WebSocket | null>(null);
   const reconnectAttempts = useRef(0);
-  const maxReconnectAttempts = 5;
-  const reconnectInterval = 3000;
+  const socketRef = useRef<WebSocket | null>(null);
+  const mountedRef = useRef(true);
 
-  const connect = () => {
-    console.log("Attempting to connect to WebSocket...");
-    const wsUrl = 'wss://chess-backend-dark.onrender.com';
-    const ws = new WebSocket(wsUrl);
-    socketRef.current = ws;
+  const connect = useCallback(() => {
+    if (!mountedRef.current) return;
 
-    ws.onopen = () => {
-      console.log("WebSocket connected successfully");
-      setIsConnected(true);
-      reconnectAttempts.current = 0;
-    };
+    try {
+      console.log('Attempting to connect to WebSocket...');
+      const ws = new WebSocket(WS_URL);
+      socketRef.current = ws;
 
-    ws.onmessage = (event) => {
-      console.log("WebSocket message received:", event.data);
-      try {
-        const message = JSON.parse(event.data);
-        console.log("Parsed WebSocket message:", message);
-      } catch (error) {
-        console.error("Error parsing WebSocket message:", error);
-      }
-    };
+      ws.onopen = () => {
+        if (!mountedRef.current) return;
+        console.log('WebSocket connected successfully');
+        setSocket(ws);
+        setIsConnected(true);
+        reconnectAttempts.current = 0;
+      };
 
-    ws.onerror = (error) => {
-      console.error("WebSocket error:", error);
+      ws.onclose = (event) => {
+        if (!mountedRef.current) return;
+        console.log(`WebSocket connection closed. Code: ${event.code}, Reason: ${event.reason}`);
+        setSocket(null);
+        setIsConnected(false);
+
+        if (event.code !== NORMAL_CLOSE && reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS) {
+          setTimeout(() => {
+            reconnectAttempts.current += 1;
+            console.log(`Attempting to reconnect (${reconnectAttempts.current}/${MAX_RECONNECT_ATTEMPTS})`);
+            connect();
+          }, RECONNECT_INTERVAL);
+        }
+      };
+
+      ws.onerror = (error) => {
+        if (!mountedRef.current) return;
+        console.error('WebSocket error:', error);
+      };
+
+      ws.onmessage = (event) => {
+        if (!mountedRef.current) return;
+        console.log('WebSocket message received:', event.data);
+        try {
+          const parsedData = JSON.parse(event.data);
+          console.log('Parsed WebSocket message:', parsedData);
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
+    } catch (error) {
+      if (!mountedRef.current) return;
+      console.error('Failed to create WebSocket connection:', error);
+      setSocket(null);
       setIsConnected(false);
-    };
-
-    ws.onclose = () => {
-      console.log("WebSocket connection closed");
-      setIsConnected(false);
-      if (reconnectAttempts.current < maxReconnectAttempts) {
-        setTimeout(() => {
-          reconnectAttempts.current += 1;
-          console.log(`Reconnection attempt ${reconnectAttempts.current}/${maxReconnectAttempts}`);
-          connect();
-        }, reconnectInterval);
-      } else {
-        console.error("Max reconnection attempts reached");
-      }
-    };
-  };
-
-  useEffect(() => {
-    connect();
-    return () => {
-      console.log("Closing WebSocket connection due to component unmount");
-      if (socketRef.current) {
-        socketRef.current.close();
-        socketRef.current = null;
-      }
-    };
+    }
   }, []);
 
-  return {
-    socket: socketRef.current,
-    isConnected,
-  };
+  useEffect(() => {
+    mountedRef.current = true;
+    connect();
+
+    const pingInterval = setInterval(() => {
+      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+        socketRef.current.send(JSON.stringify({ type: 'ping' }));
+      }
+    }, 30000); // Send a ping every 30 seconds
+
+    return () => {
+      mountedRef.current = false;
+      clearInterval(pingInterval);
+      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+        console.log('Closing WebSocket connection due to component unmount');
+        socketRef.current.close(NORMAL_CLOSE);
+      }
+    };
+  }, [connect]);
+
+  return { socket, isConnected };
 };
