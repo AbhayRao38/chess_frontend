@@ -24,22 +24,25 @@ export const Game: React.FC = () => {
   const [gameOver, setGameOver] = useState<{ winner: string; reason: string } | null>(null);
   const [lastUpdateTime, setLastUpdateTime] = useState(Date.now());
 
-  // Fallback timer logic
   useEffect(() => {
     if (!started || gameOver) return;
     const interval = setInterval(() => {
       const now = Date.now();
-      const elapsed = (now - lastUpdateTime) / 1000;
+      const elapsed = Math.floor((now - lastUpdateTime) / 1000);
       setLastUpdateTime(now);
       if (chess.turn() === 'w') {
-        setWhiteTime(prev => Math.max(0, prev - elapsed));
+        setWhiteTime(prev => Math.max(0, Math.floor(prev - elapsed)));
       } else {
-        setBlackTime(prev => Math.max(0, prev - elapsed));
+        setBlackTime(prev => Math.max(0, Math.floor(prev - elapsed)));
       }
-      console.log('[Game] Fallback timer update:', { whiteTime, blackTime, turn: chess.turn() });
+      console.log('[Game] Fallback timer update:', {
+        whiteTime: Math.floor(whiteTime),
+        blackTime: Math.floor(blackTime),
+        turn: chess.turn()
+      });
     }, 1000);
     return () => clearInterval(interval);
-  }, [started, chess, gameOver, lastUpdateTime, whiteTime, blackTime]);
+  }, [started, chess, gameOver, lastUpdateTime]);
 
   useEffect(() => {
     if (!socket) return;
@@ -55,20 +58,21 @@ export const Game: React.FC = () => {
             setBoard(newChess.board());
             setStarted(true);
             setPlayerColor(message.payload.color);
-            setWhiteTime(message.payload.whiteTime || 600);
-            setBlackTime(message.payload.blackTime || 600);
+            setWhiteTime(Math.floor(message.payload.whiteTime || 600));
+            setBlackTime(Math.floor(message.payload.blackTime || 600));
             setLastUpdateTime(Date.now());
             setGameOver(null);
             console.log('[Game] Initialized game:', message.payload);
             break;
           case MOVE:
             try {
-              const newChess = new Chess(chess.fen());
-              const move = message.payload.move;
-              console.log('[Game] Processing move:', move);
+              const move = message.payload?.move;
               if (!move || !move.from || !move.to) {
-                throw new Error('Invalid move payload');
+                console.warn('[Game] Invalid move payload:', message.payload);
+                return;
               }
+              const newChess = new Chess(chess.fen());
+              console.log('[Game] Processing move:', move);
               const result = newChess.move(move);
               if (result) {
                 setChess(newChess);
@@ -86,12 +90,12 @@ export const Game: React.FC = () => {
               const newChess = new Chess(message.payload.fen);
               setChess(newChess);
               setBoard(newChess.board());
-              setWhiteTime(message.payload.whiteTime);
-              setBlackTime(message.payload.blackTime);
+              setWhiteTime(Math.floor(message.payload.whiteTime));
+              setBlackTime(Math.floor(message.payload.blackTime));
               setLastUpdateTime(Date.now());
               console.log('[Game] Updated state:', {
-                whiteTime: message.payload.whiteTime,
-                blackTime: message.payload.blackTime,
+                whiteTime: Math.floor(message.payload.whiteTime),
+                blackTime: Math.floor(message.payload.blackTime),
                 turn: newChess.turn(),
                 fen: message.payload.fen
               });
@@ -143,7 +147,7 @@ export const Game: React.FC = () => {
           <div className="lg:col-span-4 w-full flex flex-col items-center">
             <div className="mb-4">
               <Timer 
-                seconds={playerColor === 'white' ? whiteTime : blackTime}
+                seconds={Math.floor(playerColor === 'white' ? whiteTime : blackTime)}
                 isActive={chess.turn() === (playerColor === 'white' ? 'w' : 'b') && !gameOver}
               />
             </div>
@@ -157,7 +161,7 @@ export const Game: React.FC = () => {
             />
             <div className="mt-4">
               <Timer 
-                seconds={playerColor === 'white' ? blackTime : whiteTime}
+                seconds={Math.floor(playerColor === 'white' ? blackTime : whiteTime)}
                 isActive={chess.turn() === (playerColor === 'white' ? 'b' : 'w') && !gameOver}
               />
             </div>

@@ -26,6 +26,8 @@ export const ActiveGames: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const maxRetries = 3;
 
   const fetchGames = useCallback(() => {
     if (!socket || !isConnected) {
@@ -48,14 +50,18 @@ export const ActiveGames: React.FC = () => {
 
   useEffect(() => {
     const loadingTimeout = setTimeout(() => {
-      if (loading) {
-        console.warn('[ActiveGames] Loading timeout reached');
+      if (loading && retryCount < maxRetries) {
+        console.warn('[ActiveGames] Loading timeout reached, retrying:', retryCount + 1);
+        setRetryCount(prev => prev + 1);
+        fetchGames();
+      } else if (loading) {
+        console.error('[ActiveGames] Max retries reached');
         setLoading(false);
         setError('No games received from server');
       }
     }, 15000);
     return () => clearTimeout(loadingTimeout);
-  }, [loading]);
+  }, [loading, retryCount, fetchGames]);
 
   useEffect(() => {
     if (!socket || !isConnected) {
@@ -73,6 +79,7 @@ export const ActiveGames: React.FC = () => {
           setGames(message.payload.games || []);
           setLoading(false);
           setError(null);
+          setRetryCount(0);
           setLastUpdate(new Date());
         } else if (message.type === 'ping') {
           console.log('[ActiveGames] Received ping');
@@ -93,7 +100,7 @@ export const ActiveGames: React.FC = () => {
     console.log('[ActiveGames] Adding message listener');
     socket.addEventListener('message', handleMessage);
     fetchGames();
-    const interval = setInterval(fetchGames, 15000);
+    const interval = setInterval(fetchGames, 30000);
     return () => {
       console.log('[ActiveGames] Cleaning up listener and interval');
       socket.removeEventListener('message', handleMessage);
@@ -148,6 +155,7 @@ export const ActiveGames: React.FC = () => {
             <Button onClick={() => {
               setError(null);
               setLoading(true);
+              setRetryCount(0);
               fetchGames();
             }} className="mt-4">
               Retry
